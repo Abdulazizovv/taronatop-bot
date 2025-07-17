@@ -4,9 +4,9 @@ from botapp.models import BotUser, BotChat
 
 @admin.register(BotUser)
 class BotUserAdmin(admin.ModelAdmin):
-    list_display = ('user_id', 'full_name', 'username', 'language_code', 'is_bot', 'is_active', 'is_blocked', 'created_at')
+    list_display = ('user_id', 'full_name', 'username', 'language_code', 'is_admin', 'is_active', 'is_blocked', 'created_at')
     search_fields = ('user_id', 'username', 'first_name', 'last_name')
-    list_filter = ('is_bot', 'is_active', 'is_blocked')
+    list_filter = ('is_admin', 'is_active', 'is_blocked')
     ordering = ('-created_at',)
     readonly_fields = ('created_at', 'updated_at')
     
@@ -17,11 +17,11 @@ class BotUserAdmin(admin.ModelAdmin):
 
 @admin.register(BotChat)
 class BotChatAdmin(admin.ModelAdmin):
-    list_display = ('chat_id', 'title', 'chat_type', 'username', 'is_active', 'is_blocked', 'is_admin', 'is_required', 'created_at')
+    list_display = ('chat_id', 'title', 'chat_type', 'username', 'invite_link', 'is_active', 'is_blocked', 'is_admin', 'is_required', 'created_at')
     search_fields = ('chat_id', 'title', 'username')
     list_filter = ('chat_type', 'is_active', 'is_blocked', 'is_admin', 'is_required')
     ordering = ('-created_at',)
-    readonly_fields = ('chat_id', 'title', 'username', 'is_active', 'is_blocked', 'is_admin', 'chat_type', 'created_at', 'updated_at')
+    readonly_fields = ('chat_id', 'title', 'username', 'invite_link', 'is_active', 'is_blocked', 'is_admin', 'chat_type', 'created_at', 'updated_at')
     def full_name(self, obj):
         return obj.title or obj.username or obj.chat_id
     full_name.short_description = 'Chat Name'

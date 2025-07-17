@@ -10,6 +10,7 @@ class BotUser(models.Model):
     is_bot = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_blocked = models.BooleanField(default=False)
+    is_admin = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -32,6 +33,7 @@ class BotChat(models.Model):
     chat_type = models.CharField(max_length=50, choices=[('private', 'Private'), ('group', 'Group'), ('supergroup', 'Supergroup'), ('channel', 'Channel')])
     title = models.CharField(max_length=255, blank=True, null=True)
     username = models.CharField(max_length=255, blank=True, null=True)
+    invite_link = models.CharField(max_length=255, blank=True, null=True)
     is_active = models.BooleanField(default=True)
     is_blocked = models.BooleanField(default=False)
     is_admin = models.BooleanField(default=False)
