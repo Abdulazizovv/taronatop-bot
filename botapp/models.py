@@ -69,3 +69,26 @@ class BotChat(models.Model):
     
     def required_chats():
         return BotChat.objects.filter(is_required=True, is_active=True, is_admin=True)
+    
+
+
+class YoutubeAudio(models.Model):
+    video_id = models.CharField(max_length=255, unique=True)
+    title = models.CharField(max_length=255)
+    # duration = models.IntegerField(help_text="Duration in seconds")
+    telegram_file_id = models.CharField(max_length=255, blank=True, null=True)
+    url = models.URLField(blank=True, null=True, help_text="YouTube video URL")
+    # audio_file = models.FileField(upload_to='youtube_audio/')
+    thumbnail_url = models.URLField(blank=True, null=True)
+    user = models.ForeignKey(BotUser, on_delete=models.CASCADE, related_name='youtube_audios', blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title
+    
+    class Meta:
+        verbose_name = "YouTube Audio"
+        verbose_name_plural = "YouTube Audios"
+        ordering = ['-created_at']

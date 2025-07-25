@@ -1,5 +1,5 @@
 from asgiref.sync import sync_to_async
-from botapp.models import BotUser, BotChat
+from botapp.models import BotUser, BotChat, YoutubeAudio
 import logging
 
 
@@ -104,5 +104,71 @@ class DB:
             'is_active', 'is_blocked', 'created_at', 'updated_at'
         )
         return list(chats)
+
+    # Get all YouTube audio records for a user
+    @staticmethod
+    @sync_to_async
+    def get_youtube_audios(user_id: int):
+        audios = YoutubeAudio.objects.filter(user_id=user_id).values(
+            'video_id', 'title', 'telegram_file_id', 'url', 'thumbnail_url', 'created_at', 'updated_at'
+        )
+        return list(audios)
     
+    # Save YouTube audio record
+    @staticmethod
+    @sync_to_async
+    def save_youtube_audio(video_id: str, title: str,
+                           telegram_file_id: str | None = None, url: str | None = None,
+                           thumbnail_url: str | None = None, user_id: int | None = None):
+        
+        user = BotUser.objects.filter(user_id=user_id).first() if user_id else None
+
+        audio, created = YoutubeAudio.objects.update_or_create(
+            video_id=video_id,
+            defaults={
+                'title': title,
+                # 'duration': duration,
+                'telegram_file_id': telegram_file_id,
+                'url': url,
+                'thumbnail_url': thumbnail_url,
+                'user': user
+            }
+        )
+        if created:
+            logging.info(f"New YouTube audio saved: {title} ({video_id})")
+        return {
+            "video_id": audio.video_id,
+            "title": audio.title,
+            # "duration": audio.duration,
+            "telegram_file_id": audio.telegram_file_id,
+            "url": audio.url,
+            "thumbnail_url": audio.thumbnail_url,
+            "user_id": audio.user_id,
+            "created_at": audio.created_at,
+            "updated_at": audio.updated_at
+        }
     
+    # Get YouTube audio by video ID
+    @staticmethod
+    @sync_to_async
+    def get_youtube_audio(video_id: str):
+        try:
+            audio = YoutubeAudio.objects.get(video_id=video_id)
+            return {
+                "video_id": audio.video_id,
+                "title": audio.title,
+                # "duration": audio.duration,
+                "telegram_file_id": audio.telegram_file_id,
+                "url": audio.url,
+                "thumbnail_url": audio.thumbnail_url,
+                "user": {
+                    "user_id": audio.user.user_id if audio.user else None,
+                    "first_name": audio.user.first_name if audio.user else None,
+                    "last_name": audio.user.last_name if audio.user else None,
+                    "username": audio.user.username if audio.user else None
+                } if audio.user else None,
+                "created_at": audio.created_at,
+                "updated_at": audio.updated_at
+            }
+        except YoutubeAudio.DoesNotExist:
+            return None

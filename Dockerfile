@@ -8,7 +8,17 @@ WORKDIR /usr/src/app
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-# Install dependencies
+# Install system dependencies including ffmpeg and ffprobe
+RUN apk update && apk add --no-cache \
+    ffmpeg \
+    build-base \
+    gcc \
+    musl-dev \
+    libffi-dev \
+    openssl-dev \
+    python3-dev
+
+# Install Python dependencies
 COPY requirements.txt /usr/src/app/requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /usr/src/app/requirements.txt
 
