@@ -9,6 +9,8 @@ from typing import List, Dict
 import os
 from bot.data.config import PRIVATE_CHANNEL_ID
 import re
+from bot.utils.instagram import download_instagram_media
+from bot.keyboards.inline.instagram import instagram_keyboard
 
 # Constants
 ITEMS_PER_PAGE = 10
@@ -62,6 +64,7 @@ async def handle_search(message: types.Message, state: FSMContext):
     if not search_query:
         await message.answer("❗ Iltimos, qidirish uchun so'rov yuboring.")
         return
+    
 
     is_youtube_url = any(x in search_query for x in ["youtube.com/watch?v=", "youtu.be/", "youtube.com/shorts/"])
 

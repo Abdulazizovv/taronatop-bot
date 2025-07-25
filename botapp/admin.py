@@ -1,5 +1,5 @@
 from django.contrib import admin
-from botapp.models import BotUser, BotChat, YoutubeAudio, YoutubeVideo
+from botapp.models import BotUser, BotChat, YoutubeAudio, YoutubeVideo, InstagramMedia
 
 
 @admin.register(BotUser)
@@ -73,6 +73,23 @@ class YoutubeVideoAdmin(admin.ModelAdmin):
     list_filter = ('created_at', 'updated_at')
     ordering = ('-created_at',)
     readonly_fields = ('created_at', 'updated_at')
+
+    def has_add_permission(self, request, obj=None):
+        return False
+    def has_change_permission(self, request, obj=None):
+        return False
+    def has_delete_permission(self, request, obj=None):
+        return False
+    
+
+
+@admin.register(InstagramMedia)
+class InstagramMediaAdmin(admin.ModelAdmin):
+    list_display = ('title', 'video_url', 'user', 'created_at')
+    search_fields = ('title', 'user__username', 'video_url')
+    list_filter = ('created_at',)
+    ordering = ('-created_at',)
+    readonly_fields = ('title', 'created_at')
 
     def has_add_permission(self, request, obj=None):
         return False

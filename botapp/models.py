@@ -91,7 +91,7 @@ class YoutubeAudio(models.Model):
     url = models.URLField(blank=True, null=True, help_text="YouTube video URL")
     # audio_file = models.FileField(upload_to='youtube_audio/')
     thumbnail_url = models.URLField(blank=True, null=True)
-    user = models.ForeignKey(BotUser, on_delete=models.CASCADE, related_name='youtube_audios', blank=True, null=True)
+    user = models.ForeignKey(BotUser, on_delete=models.SET_NULL, related_name='youtube_audios', blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -112,7 +112,7 @@ class YoutubeVideo(models.Model):
     telegram_file_id = models.CharField(max_length=255, blank=True, null=True)
     thumbnail_url = models.URLField(blank=True, null=True)
     url = models.URLField(blank=True, null=True, help_text="YouTube video URL")
-    user = models.ForeignKey(BotUser, on_delete=models.CASCADE, related_name='youtube_videos', blank=True, null=True)
+    user = models.ForeignKey(BotUser, on_delete=models.SET_NULL, related_name='youtube_videos', blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -123,4 +123,30 @@ class YoutubeVideo(models.Model):
     class Meta:
         verbose_name = "YouTube Video"
         verbose_name_plural = "YouTube Videos"
+        ordering = ['-created_at']
+
+    
+# === Instagram Media ===
+class InstagramMedia(models.Model):
+    media_id = models.CharField(max_length=255, unique=True, help_text="Unique ID of the Instagram media")
+    title = models.CharField(max_length=255, help_text="Media title")
+    video_url = models.URLField(blank=True, null=True, help_text="URL of the video")
+    telegram_file_id = models.CharField(max_length=255, blank=True, null=True, help_text="Telegram file ID if sent")
+    thumbnail = models.URLField(blank=True, null=True, help_text="Thumbnail URL")
+    duration = models.IntegerField(null=True, blank=True, help_text="Duration in seconds")
+    track = models.CharField(max_length=255, blank=True, null=True, help_text="Track name if available")
+    artist = models.CharField(max_length=255, blank=True, null=True, help_text="Artist name if available")
+    user = models.ForeignKey(BotUser, on_delete=models.SET_NULL, related_name='instagram_media', blank=True, null=True)
+
+    audio = models.ForeignKey(YoutubeAudio, on_delete=models.SET_NULL, related_name='instagram_media', blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title or self.video_url or f"Instagram Media {self.id}"
+    
+    class Meta:
+        verbose_name = "Instagram Media"
+        verbose_name_plural = "Instagram Media"
         ordering = ['-created_at']

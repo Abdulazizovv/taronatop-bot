@@ -1,5 +1,5 @@
 from asgiref.sync import sync_to_async
-from botapp.models import BotUser, BotChat, YoutubeAudio, YoutubeVideo
+from botapp.models import BotUser, BotChat, YoutubeAudio, YoutubeVideo, InstagramMedia
 import logging
 
 
@@ -139,6 +139,7 @@ class DB:
         if created:
             logging.info(f"New YouTube audio saved: {title} ({video_id})")
         return {
+            "id": audio.id,
             "video_id": audio.video_id,
             "title": audio.title,
             # "duration": audio.duration,
@@ -242,3 +243,129 @@ class DB:
             'video_id', 'title', 'duration', 'telegram_file_id', 'thumbnail_url', 'url', 'created_at', 'updated_at'
         )
         return list(videos)
+    
+
+    # Save Instagram media record
+    @staticmethod
+    @sync_to_async
+    def save_instagram_media(media_id: str,title: str, video_url: str | None = None,
+                             telegram_file_id: str | None = None, thumbnail: str | None = None,
+                             duration: int | None = None, track: str | None = None,
+                             artist: str | None = None, user_id: int | None = None):
+        
+        user = BotUser.objects.filter(user_id=user_id).first() if user_id else None
+
+        media, created = InstagramMedia.objects.update_or_create(
+            media_id=media_id,
+            defaults={
+                'title': title,
+                'video_url': video_url,
+                'telegram_file_id': telegram_file_id,
+                'thumbnail': thumbnail,
+                'duration': duration,
+                'track': track,
+                'artist': artist,
+                'user': user
+            }
+        )
+        if created:
+            logging.info(f"New Instagram media saved: {title}")
+        return {
+            "title": media.title,
+            "video_url": media.video_url,
+            "telegram_file_id": media.telegram_file_id,
+            "thumbnail": media.thumbnail,
+            "duration": media.duration,
+            "track": media.track,
+            "artist": media.artist,
+            "user_id": media.user.user_id if media.user else None,
+            "created_at": media.created_at,
+            "updated_at": media.updated_at
+        }
+    
+    # Get Instagram media by url
+    @staticmethod
+    @sync_to_async
+    def get_instagram_media(video_url: str):
+        try:
+            media = InstagramMedia.objects.get(video_url=video_url)
+            return {
+                "media_id": media.media_id,
+                "title": media.title,
+                "video_url": media.video_url,
+                "telegram_file_id": media.telegram_file_id,
+                "thumbnail": media.thumbnail,
+                "duration": media.duration,
+                "track": media.track,
+                "artist": media.artist,
+                "user": {
+                    "user_id": media.user.user_id if media.user else None,
+                    "first_name": media.user.first_name if media.user else None,
+                    "last_name": media.user.last_name if media.user else None,
+                    "username": media.user.username if media.user else None
+                } if media.user else None,
+                "created_at": media.created_at,
+                "updated_at": media.updated_at
+            }
+        except InstagramMedia.DoesNotExist:
+            return None
+        
+    # Get all Instagram media for a user
+    @staticmethod
+    @sync_to_async
+    def get_instagram_media_by_user(user_id: int):
+        media = InstagramMedia.objects.filter(user_id=user_id).values(
+            'title', 'video_url', 'telegram_file_id', 'thumbnail', 'duration', 'track', 'artist', 'created_at', 'updated_at'
+        )
+        return list(media)
+    
+    # Get Instagram media by media_id
+    @staticmethod
+    @sync_to_async
+    def get_instagram_media_by_id(media_id: str):
+        try:
+            media = InstagramMedia.objects.get(media_id=media_id)
+            return {
+                "media_id": media.media_id,
+                "title": media.title,
+                "video_url": media.video_url,
+                "telegram_file_id": media.telegram_file_id,
+                "thumbnail": media.thumbnail,
+                "duration": media.duration,
+                "track": media.track,
+                "artist": media.artist,
+                "user": {
+                    "user_id": media.user.user_id if media.user else None,
+                    "first_name": media.user.first_name if media.user else None,
+                    "last_name": media.user.last_name if media.user else None,
+                    "username": media.user.username if media.user else None
+                } if media.user else None,
+                "audio": {
+                    "title": media.audio.title if media.audio else None,
+                    "telegram_file_id": media.audio.telegram_file_id if media.audio else None,
+                } if media.audio else None,
+                "created_at": media.created_at,
+                "updated_at": media.updated_at
+            }
+        except InstagramMedia.DoesNotExist:
+            return None
+        
+    # Add audio to Instagram media
+    @staticmethod
+    @sync_to_async
+    def add_audio_to_instagram_media(media_id: str, audio_id: str):
+        try:
+            media = InstagramMedia.objects.get(media_id=media_id)
+            audio = YoutubeAudio.objects.get(video_id=audio_id)
+            media.audio = audio
+            media.save()
+            logging.info(f"Added audio {audio.title} to Instagram media {media.title}")
+            return {
+                "media_id": media.media_id,
+                "audio_id": audio.video_id,
+                "media_title": media.title,
+                "audio_title": audio.title
+            }
+        except (InstagramMedia.DoesNotExist, YoutubeAudio.DoesNotExist) as e:
+            logging.error(f"[Add Audio Error] {e}")
+            return None
