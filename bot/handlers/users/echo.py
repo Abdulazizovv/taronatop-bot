@@ -1,12 +1,14 @@
 from aiogram import types
 import logging
 from bot.loader import dp, db ,bot
-from bot.utils.youtube import YouTubeSearch, download_music
+from bot.utils.youtube import YouTubeSearch, download_music, download_video, extract_video_id, get_video_info
 from bot.keyboards.inline.music import create_music_keyboard, music_callback, pagination_callback
+from bot.keyboards.inline.select_format import create_format_selection_keyboard as create_format_keyboard
 from aiogram.dispatcher import FSMContext
 from typing import List, Dict
 import os
 from bot.data.config import PRIVATE_CHANNEL_ID
+import re
 
 # Constants
 ITEMS_PER_PAGE = 10
@@ -49,52 +51,74 @@ def format_results_page(results: List[Dict], page: int = 1, items_per_page: int 
 
 
 
-# getting search term or link
 @dp.message_handler(state=None)
 async def handle_search(message: types.Message, state: FSMContext):
-    """
-    Handle user search queries.
-    """
     search_query = message.text.strip()
-    
+
+    if len(search_query) < 4:
+        await message.answer("❗ Qidirish uchun so'rov kamida 4 ta belgidan iborat bo'lishi kerak.")
+        return
+
     if not search_query:
-        await message.answer("Iltimos, qidirish uchun so'rov yuboring.")
-        return
-        
-    if search_query.startswith(("http://", "https://")):
-        await message.answer("ℹ️ Siz YouTube havolasini yubordingiz. Bu funksiya keyinchalik qo'shiladi.")
+        await message.answer("❗ Iltimos, qidirish uchun so'rov yuboring.")
         return
 
-    logging.info(f"User {message.from_user.id} searching for: {search_query}")
+    is_youtube_url = any(x in search_query for x in ["youtube.com/watch?v=", "youtu.be/", "youtube.com/shorts/"])
 
+    # --- Agar foydalanuvchi YouTube havola yuborgan bo‘lsa ---
+    if is_youtube_url:
+        try:
+            search_msg = await message.answer("🔍 Video tekshirilmoqda...")
+
+            # YouTube havoladan video ma'lumotlarini olish
+            video_info = get_video_info(search_query)
+
+            if not video_info:
+                await search_msg.edit_text("❌ Video topilmadi yoki noto'g'ri havola.")
+                return
+            
+            # Foydalanuvchiga video sarlavhasini ko‘rsatish
+            await message.answer_photo(
+                photo=video_info["thumbnail_url"],
+                caption=f"🎥 <b>Video topildi:</b>\n\n{video_info['title']}\n\nYuklab olish formatini tanlang👇",
+                parse_mode="HTML",
+                reply_markup=create_format_keyboard(video_id=video_info["video_id"])
+            )
+
+        except Exception as e:
+            logging.error(f"[YouTube Link Error] {e}")
+            await message.answer("❌ Video bilan ishlashda xatolik yuz berdi.")
+        return
+
+    # --- Oddiy matn bo‘yicha YouTube qidiruvi ---
     try:
-        # Show searching status
         search_msg = await message.answer("🔍 Qidirilmoqda...")
-        
-        # Perform search
+
         youtube = YouTubeSearch(search_query, max_results=MAX_SEARCH_RESULTS)
         results = youtube.to_dict()
-        
+
         if not results:
             await search_msg.edit_text("😕 Hech qanday natija topilmadi.")
             return
 
-        # Save results to state
+        # Natijalarni kontekstdagi state ga saqlaymiz
         await state.update_data(results=results)
-        
-        # Show first page of results
+
+        # Birinchi sahifani formatlab yuborish
         text = format_results_page(results, page=1)
         keyboard = create_music_keyboard(results, page=1)
-        
+
         await search_msg.edit_text(
-            text, 
-            reply_markup=keyboard, 
+            text,
+            reply_markup=keyboard,
             parse_mode="HTML"
         )
 
     except Exception as e:
-        logging.error(f"Search error: {str(e)}")
-        await message.answer("⚠️ Qidiruvda xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring.")
+        logging.error(f"[Search Error] {e}")
+        await message.answer("⚠️ Qidiruvda xatolik yuz berdi. Iltimos, keyinroq urinib ko‘ring.")
+
+
 
 @dp.callback_query_handler(lambda c: c.data == "noop")
 async def handle_noop(call: types.CallbackQuery):

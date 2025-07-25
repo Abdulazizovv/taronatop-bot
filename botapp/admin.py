@@ -1,5 +1,5 @@
 from django.contrib import admin
-from botapp.models import BotUser, BotChat, YoutubeAudio
+from botapp.models import BotUser, BotChat, YoutubeAudio, YoutubeVideo
 
 
 @admin.register(BotUser)
@@ -65,3 +65,18 @@ class YoutubeAudioAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
     
+
+@admin.register(YoutubeVideo)
+class YoutubeVideoAdmin(admin.ModelAdmin):
+    list_display = ('video_id', 'title', 'duration', 'user', 'created_at', 'updated_at')
+    search_fields = ('video_id', 'title')
+    list_filter = ('created_at', 'updated_at')
+    ordering = ('-created_at',)
+    readonly_fields = ('created_at', 'updated_at')
+
+    def has_add_permission(self, request, obj=None):
+        return False
+    def has_change_permission(self, request, obj=None):
+        return False
+    def has_delete_permission(self, request, obj=None):
+        return False

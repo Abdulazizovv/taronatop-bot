@@ -1,5 +1,5 @@
 from asgiref.sync import sync_to_async
-from botapp.models import BotUser, BotChat, YoutubeAudio
+from botapp.models import BotUser, BotChat, YoutubeAudio, YoutubeVideo
 import logging
 
 
@@ -174,3 +174,71 @@ class DB:
             }
         except YoutubeAudio.DoesNotExist:
             return None
+        
+    # Get YouTube video by video ID
+    @staticmethod
+    @sync_to_async
+    def get_youtube_video(video_id: str):
+        try:
+            video = YoutubeVideo.objects.get(video_id=video_id)
+            return {
+                "video_id": video.video_id,
+                "title": video.title,
+                "duration": video.duration,
+                "telegram_file_id": video.telegram_file_id,
+                "thumbnail_url": video.thumbnail_url,
+                "url": video.url,
+                "user": {
+                    "user_id": video.user.user_id if video.user else None,
+                    "first_name": video.user.first_name if video.user else None,
+                    "last_name": video.user.last_name if video.user else None,
+                    "username": video.user.username if video.user else None
+                } if video.user else None,
+                "created_at": video.created_at,
+                "updated_at": video.updated_at
+            }
+        except YoutubeVideo.DoesNotExist:
+            return None
+    # Save YouTube video record
+    @staticmethod
+    @sync_to_async
+    def save_youtube_video(video_id: str, title: str, duration: int | None = None,
+                           telegram_file_id: str | None = None,
+                           thumbnail_url: str | None = None, url: str | None = None,
+                           user_id: int | None = None):
+        
+        user = BotUser.objects.filter(user_id=user_id).first() if user_id else None
+
+        video, created = YoutubeVideo.objects.update_or_create(
+            video_id=video_id,
+            defaults={
+                'title': title,
+                'telegram_file_id': telegram_file_id,
+                'duration': duration,
+                'thumbnail_url': thumbnail_url,
+                'url': url,
+                'user': user
+            }
+        )
+        if created:
+            logging.info(f"New YouTube video saved: {title} ({video_id})")
+        return {
+            "video_id": video.video_id,
+            "title": video.title,
+            "duration": video.duration,
+            "telegram_file_id": video.telegram_file_id,
+            "thumbnail_url": video.thumbnail_url,
+            "url": video.url,
+            "user_id": video.user.user_id if video.user else None,
+            "created_at": video.created_at,
+            "updated_at": video.updated_at
+        }
+    
+    # Get all YouTube videos for a user
+    @staticmethod
+    @sync_to_async
+    def get_youtube_videos(user_id: int):
+        videos = YoutubeVideo.objects.filter(user_id=user_id).values(
+            'video_id', 'title', 'duration', 'telegram_file_id', 'thumbnail_url', 'url', 'created_at', 'updated_at'
+        )
+        return list(videos)

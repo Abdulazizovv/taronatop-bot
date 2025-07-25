@@ -103,3 +103,24 @@ class YoutubeAudio(models.Model):
         verbose_name = "YouTube Audio"
         verbose_name_plural = "YouTube Audios"
         ordering = ['-created_at']
+
+
+class YoutubeVideo(models.Model):
+    video_id = models.CharField(max_length=255, unique=True)
+    title = models.CharField(max_length=255)
+    duration = models.IntegerField(help_text="Duration in seconds", null=True, blank=True, default=0)
+    telegram_file_id = models.CharField(max_length=255, blank=True, null=True)
+    thumbnail_url = models.URLField(blank=True, null=True)
+    url = models.URLField(blank=True, null=True, help_text="YouTube video URL")
+    user = models.ForeignKey(BotUser, on_delete=models.CASCADE, related_name='youtube_videos', blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title
+    
+    class Meta:
+        verbose_name = "YouTube Video"
+        verbose_name_plural = "YouTube Videos"
+        ordering = ['-created_at']
