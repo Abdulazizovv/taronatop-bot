@@ -1,6 +1,7 @@
 from bot.loader import bot, dp, db
 from aiogram import types
 from aiogram.utils.exceptions import ChatNotFound, Unauthorized, BadRequest
+import logging
 
 
 @dp.my_chat_member_handler()
@@ -22,17 +23,28 @@ async def on_bot_added_to_channel(update: types.ChatMemberUpdated):
             try:
                 invite_link = await bot.export_chat_invite_link(channel.id)
             except (ChatNotFound, Unauthorized, BadRequest) as e:
+                logging.error(f"Error exporting invite link for channel {channel.id}: {e}")
                 invite_link = None
 
         # Bot kanalga qo‘shildi yoki administrator bo‘ldi
-        await db.add_chat(
-            chat_id=channel.id,
-            chat_type=channel.type,
-            title=channel.title,
-            username=channel.username,
-            invite_link=invite_link,
-            is_admin=new_status in ["administrator", "owner"],
-        )
+        
+        if not invite_link:
+            await db.add_chat(
+                chat_id=channel.id,
+                chat_type=channel.type,
+                title=channel.title,
+                username=channel.username,
+                is_admin=new_status in ["administrator", "owner"],
+            )
+        else:
+            await db.add_chat(
+                chat_id=channel.id,
+                chat_type=channel.type,
+                title=channel.title,
+                username=channel.username,
+                invite_link=invite_link,
+                is_admin=new_status in ["administrator", "owner"],
+            )
 
         # Bot yangi qo‘shilgan
         # await bot.send_message(

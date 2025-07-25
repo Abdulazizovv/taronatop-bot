@@ -63,7 +63,8 @@ class DB:
             chat.title = title
             chat.username = username
             chat.is_admin = is_admin
-            chat.invite_link = invite_link
+            if invite_link is not None:
+                chat.invite_link = invite_link
             chat.is_active = True
             chat.is_blocked = False
             chat.save()
@@ -89,6 +90,7 @@ class DB:
             chat.is_active = False
             chat.is_admin = False
             chat.is_blocked = True
+            chat.is_required = False
             chat.save()
             logging.info(f"Deactivated chat: {chat.title}")
             return True

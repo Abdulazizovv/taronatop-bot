@@ -25,6 +25,13 @@ class BotChatAdmin(admin.ModelAdmin):
     def full_name(self, obj):
         return obj.title or obj.username or obj.chat_id
     full_name.short_description = 'Chat Name'
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly = list(self.readonly_fields)
+        if obj and (not obj.is_active or not obj.is_admin):
+            readonly.append('is_required')
+        return readonly
+
     def chat_type_display(self, obj):
         return dict(BotChat._meta.get_field('chat_type').choices).get(obj.chat_type, 'Unknown')
     chat_type_display.short_description = 'Chat Type'

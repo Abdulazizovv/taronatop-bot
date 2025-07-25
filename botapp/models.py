@@ -1,4 +1,6 @@
 from django.db import models
+from django.core.exceptions import ValidationError
+import logging
 
 
 class BotUser(models.Model):
@@ -45,6 +47,15 @@ class BotChat(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.chat_id})" 
+    
+    def clean(self):
+        # Agar required bo‘lsa, is_active va is_admin True bo‘lishi kerak
+        if self.is_required and (not self.is_active or not self.is_admin):
+            raise ValidationError("Faqat active va admin chatlar required bo'lishi mumkin.")
+        
+    def save(self, *args, **kwargs):
+        self.full_clean()  # clean() ni majburan chaqiramiz
+        return super().save(*args, **kwargs)
     
     class Meta:
         verbose_name = "Bot Chat"
