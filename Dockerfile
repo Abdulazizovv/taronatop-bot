@@ -1,26 +1,31 @@
-# Use the official Python image
-FROM python:3.12.3-alpine
+# 1. Python 3.12 slim image bazasida
+FROM python:3.12-slim
 
-# Set the working directory inside the container
+# 2. Ishchi katalogni o'rnatish
 WORKDIR /usr/src/app
 
-# Prevent Python from writing .pyc files and buffer output
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+# 3. .pyc fayllarni yozishni oldini olish, loglar real vaqt ko'rinishida
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
-# Install system dependencies including ffmpeg and ffprobe
-RUN apk update && apk add --no-cache \
+# 4. Tizimga kerakli paketlarni o‘rnatish
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
-    build-base \
-    gcc \
-    musl-dev \
+    git \
+    curl \
+    build-essential \
+    libssl-dev \
     libffi-dev \
-    openssl-dev \
-    python3-dev
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-COPY requirements.txt /usr/src/app/requirements.txt
-RUN pip install --no-cache-dir --upgrade -r /usr/src/app/requirements.txt
+# 5. pip yangilash
+RUN pip install --upgrade pip
 
-# Copy the entire project into the container
-COPY . /usr/src/app/
+# 6. Talablar faylini nusxalash va o‘rnatish
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 7. Loyihani konteynerga nusxalash
+COPY . .
+
