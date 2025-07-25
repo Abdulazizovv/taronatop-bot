@@ -35,6 +35,12 @@ async def recognize_voice_message(message: types.Message):
         # Step 1: Recognize using Shazam
         shazam = Shazam()
         result = await shazam.recognize(temp_file)
+
+        if not result or 'track' not in result:
+            await message.answer("❌ Musiqa aniqlanmadi. Iltimos, boshqa ovoz yuboring.")
+            return
+        
+
         track = result['track']
         title = track['title']
         subtitle = track['subtitle']
@@ -62,6 +68,10 @@ async def recognize_voice_message(message: types.Message):
             return
 
         # Step 4: Download audio
+        logging.info(f"Downloading audio for video ID: {video_id}")
+
+        await message.answer("🔄 Musiqa yuklanmoqda, biroz kuting...")
+
         audio_file_path = f"{message.from_user.id}_audio.%(ext)s"
         ydl_opts = {
             "format": "bestaudio/best",
