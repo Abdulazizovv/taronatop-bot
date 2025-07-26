@@ -150,3 +150,29 @@ class InstagramMedia(models.Model):
         verbose_name = "Instagram Media"
         verbose_name_plural = "Instagram Media"
         ordering = ['-created_at']
+
+
+# === TikTok Media ===
+class TikTokMedia(models.Model):
+    media_id = models.CharField(max_length=255, unique=True, help_text="Unique ID of the TikTok media")
+    title = models.CharField(max_length=255, help_text="Media title")
+    video_url = models.URLField(blank=True, null=True, help_text="URL of the video")
+    telegram_file_id = models.CharField(max_length=255, blank=True, null=True, help_text="Telegram file ID if sent")
+    thumbnail = models.URLField(blank=True, null=True, help_text="Thumbnail URL")
+    duration = models.IntegerField(null=True, blank=True, help_text="Duration in seconds")
+    track = models.CharField(max_length=255, blank=True, null=True, help_text="Track name if available")
+    artist = models.CharField(max_length=255, blank=True, null=True, help_text="Artist name if available")
+    user = models.ForeignKey(BotUser, on_delete=models.SET_NULL, related_name='tiktok_media', blank=True, null=True)
+
+    audio = models.ForeignKey(YoutubeAudio, on_delete=models.SET_NULL, related_name='tiktok_media', blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title or self.video_url or f"TikTok Media {self.id}"
+    
+    class Meta:
+        verbose_name = "TikTok Media"
+        verbose_name_plural = "TikTok Media"
+        ordering = ['-created_at']

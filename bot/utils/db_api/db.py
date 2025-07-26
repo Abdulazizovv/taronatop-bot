@@ -1,5 +1,5 @@
 from asgiref.sync import sync_to_async
-from botapp.models import BotUser, BotChat, YoutubeAudio, YoutubeVideo, InstagramMedia
+from botapp.models import BotUser, BotChat, YoutubeAudio, YoutubeVideo, InstagramMedia, TikTokMedia
 import logging
 
 
@@ -39,6 +39,26 @@ class DB:
             "updated_at": user.updated_at,
             "created": created
         }
+    
+    # Get user by user_id
+    @staticmethod
+    @sync_to_async
+    def get_user(user_id: int):
+        try:
+            user = BotUser.objects.get(user_id=user_id)
+            return {
+                "user_id": user.user_id,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "username": user.username,
+                "is_admin": user.is_admin,
+                "is_active": user.is_active,
+                "is_blocked": user.is_blocked,
+                "created_at": user.created_at,
+                "updated_at": user.updated_at
+            }
+        except BotUser.DoesNotExist:
+            return None
     
     # Adding new chat
     @staticmethod
@@ -369,3 +389,125 @@ class DB:
         except (InstagramMedia.DoesNotExist, YoutubeAudio.DoesNotExist) as e:
             logging.error(f"[Add Audio Error] {e}")
             return None
+
+    # Save TikTok media record
+    @staticmethod
+    @sync_to_async
+    def save_tiktok_media(media_id: str, title: str, video_url: str | None = None,
+                          telegram_file_id: str | None = None, thumbnail: str | None = None,
+                          duration: int | None = None, track: str | None = None,
+                          artist: str | None = None, user_id: int | None = None):
+        
+        user = BotUser.objects.filter(user_id=user_id).first() if user_id else None
+
+        media, created = TikTokMedia.objects.update_or_create(
+            media_id=media_id,
+            defaults={
+                'title': title,
+                'video_url': video_url,
+                'telegram_file_id': telegram_file_id,
+                'thumbnail': thumbnail,
+                'duration': duration,
+                'track': track,
+                'artist': artist,
+                'user': user
+            }
+        )
+        if created:
+            logging.info(f"New TikTok media saved: {title}")
+        return {
+            "media_id": media.media_id,
+            "title": media.title,
+            "video_url": media.video_url,
+            "telegram_file_id": media.telegram_file_id,
+            "thumbnail": media.thumbnail,
+            "duration": media.duration,
+            "track": media.track,
+            "artist": media.artist,
+            "user": {
+                "user_id": media.user.user_id if media.user else None,
+                "first_name": media.user.first_name if media.user else None,
+                "last_name": media.user.last_name if media.user else None,
+                "username": media.user.username if media.user else None
+            } if media.user else None,
+            "audio": {
+                "title": media.audio.title if media.audio else None,
+                "telegram_file_id": media.audio.telegram_file_id if media.audio else None,
+            } if media.audio else None,
+            "created_at": media.created_at,
+            "updated_at": media.updated_at
+        }
+
+    # Get TikTok media by url
+    @staticmethod
+    @sync_to_async
+    def get_tiktok_media(video_url: str):
+        try:
+            media = TikTokMedia.objects.get(video_url=video_url)
+            return {
+                "media_id": media.media_id,
+                "title": media.title,
+                "video_url": media.video_url,
+                "telegram_file_id": media.telegram_file_id,
+                "thumbnail": media.thumbnail,
+                "duration": media.duration,
+                "track": media.track,
+                "artist": media.artist,
+                "user": {
+                    "user_id": media.user.user_id if media.user else None,
+                    "first_name": media.user.first_name if media.user else None,
+                    "last_name": media.user.last_name if media.user else None,
+                    "username": media.user.username if media.user else None
+                } if media.user else None,
+                "audio": {
+                    "title": media.audio.title if media.audio else None,
+                    "telegram_file_id": media.audio.telegram_file_id if media.audio else None,
+                } if media.audio else None,
+                "created_at": media.created_at,
+                "updated_at": media.updated_at
+            }
+        except TikTokMedia.DoesNotExist:
+            return None
+        
+    # Get TikTok media by media_id
+    @staticmethod
+    @sync_to_async
+    def get_tiktok_media_by_id(media_id: str):
+        try:
+            media = TikTokMedia.objects.get(media_id=media_id)
+            return {
+                "media_id": media.media_id,
+                "title": media.title,
+                "video_url": media.video_url,
+                "telegram_file_id": media.telegram_file_id,
+                "thumbnail": media.thumbnail,
+                "duration": media.duration,
+                "track": media.track,
+                "artist": media.artist,
+                "user": {
+                    "user_id": media.user.user_id if media.user else None,
+                    "first_name": media.user.first_name if media.user else None,
+                    "last_name": media.user.last_name if media.user else None,
+                    "username": media.user.username if media.user else None
+                } if media.user else None,
+                "audio": {
+                    "title": media.audio.title if media.audio else None,
+                    "telegram_file_id": media.audio.telegram_file_id if media.audio else None,
+                } if media.audio else None,
+                "created_at": media.created_at,
+                "updated_at": media.updated_at
+            }
+        except TikTokMedia.DoesNotExist:
+            return None
+        
+    # Add audio to TikTok media
+    @staticmethod
+    @sync_to_async
+    def add_audio_to_tiktok_media(media_id: str, audio_id: str):
+        try:
+            media = TikTokMedia.objects.get(media_id=media_id)
+            media.audio = YoutubeAudio.objects.get(video_id=audio_id)
+            media.save()
+            return True
+        except (TikTokMedia.DoesNotExist, YoutubeAudio.DoesNotExist):
+            return False
