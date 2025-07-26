@@ -24,6 +24,12 @@ async def handle_format_selection(callback_query: types.CallbackQuery, callback_
         return
 
     try:
+        await callback_query.answer("⏳ Yuklanmoqda, iltimos kuting...")
+        await callback_query.message.delete()
+        await callback_query.message.answer(
+            "⏳",
+            reply_markup=None
+        )
         # Fetch video info
         video_url = f"https://youtube.com/watch?v={video_id}"
         video_info = get_video_info(video_url)
@@ -35,11 +41,6 @@ async def handle_format_selection(callback_query: types.CallbackQuery, callback_
         title = video_info.get("title", "Nomsiz video")
         clean_title = title.strip()
 
-        await callback_query.answer("⏳ Yuklanmoqda, iltimos kuting...")
-        await callback_query.message.edit_text(
-            "⏳",
-            reply_markup=None
-        )
 
 
         if format_type == "audio":
@@ -50,13 +51,13 @@ async def handle_format_selection(callback_query: types.CallbackQuery, callback_
                     audio=existing['telegram_file_id'],
                     caption=existing['title']
                 )
-                await callback_query.message.edit_reply_markup()
+
                 return
 
             # 2. Download
             audio_data, filepath, filename = await download_music(video_url)
             if not audio_data:
-                await callback_query.message.edit_text("❌ Audio yuklab olishda xatolik yuz berdi.")
+                await callback_query.message.answer("❌ Audio yuklab olishda xatolik yuz berdi.")
                 return
 
             # 3. Upload to Telegram
@@ -78,7 +79,6 @@ async def handle_format_selection(callback_query: types.CallbackQuery, callback_
             )
 
             # 5. Respond to user
-            await callback_query.message.edit_reply_markup()
             await callback_query.message.answer_audio(
                 audio=msg.audio.file_id,
                 caption=clean_title
@@ -93,13 +93,12 @@ async def handle_format_selection(callback_query: types.CallbackQuery, callback_
                     video=existing['telegram_file_id'],
                     caption=existing['title']
                 )
-                await callback_query.message.edit_reply_markup()
                 return
 
             # 2. Download
             video_data, filepath, filename = await download_video(video_url)
             if not video_data:
-                raise RuntimeError("Video fayl topilmadi")
+                await callback_query.message.answer("Videoni yuklab olib bo'lmadi!")
 
             # 3. Upload to Telegram
             msg = await bot.send_video(
@@ -119,7 +118,6 @@ async def handle_format_selection(callback_query: types.CallbackQuery, callback_
             )
 
             # 5. Respond to user
-            await callback_query.message.edit_reply_markup()
             await callback_query.message.answer_video(
                 video=msg.video.file_id,
                 caption=clean_title
@@ -145,7 +143,12 @@ async def handle_format_selection(callback_query: types.CallbackQuery, callback_
 @dp.callback_query_handler(text="cancel")
 async def cancel_format_selection(callback_query: types.CallbackQuery, state: FSMContext):
     await state.finish()
-    await callback_query.message.edit_text(
-        "Tanlov bekor qilindi. Iltimos, boshqa video yoki format tanlang.",
+    try:
+        await callback_query.message.delete()
+    except Exception as err:
+        logging.error(f"Error deleting message: {err}")
+
+    await callback_query.message.answer(
+        "Tanlov bekor qilindi.",
         reply_markup=None
     )

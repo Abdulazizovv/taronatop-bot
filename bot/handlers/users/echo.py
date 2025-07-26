@@ -8,9 +8,7 @@ from aiogram.dispatcher import FSMContext
 from typing import List, Dict
 import os
 from bot.data.config import PRIVATE_CHANNEL_ID
-import re
-from bot.utils.instagram import download_instagram_media
-from bot.keyboards.inline.instagram import instagram_keyboard
+from bot.filters.is_private import IsPrivate
 
 # Constants
 ITEMS_PER_PAGE = 10
@@ -53,7 +51,7 @@ def format_results_page(results: List[Dict], page: int = 1, items_per_page: int 
 
 
 
-@dp.message_handler(state=None)
+@dp.message_handler(IsPrivate(),state=None)
 async def handle_search(message: types.Message, state: FSMContext):
     search_query = message.text.strip()
 
