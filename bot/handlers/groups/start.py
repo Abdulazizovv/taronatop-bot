@@ -19,6 +19,7 @@ async def group_start(message: types.Message, state: FSMContext):
         f"— YouTube, Instagram va TikTok musiqalarini yuklab olish\n"
         f"— Qo‘shiq nomi yoki ovozli xabar orqali qidiruv\n"
         f"— Musiqalarni guruhga yuborish va ulashish\n\n"
+        f"Botdan foydalanish yo'riqnomasi - /help\n"
         f"Botdan foydalanishni boshlash uchun shunchaki qo‘shiq nomini yozing yoki link yuboring!",
         parse_mode="Markdown"
     )

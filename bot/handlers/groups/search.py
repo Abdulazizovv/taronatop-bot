@@ -54,7 +54,7 @@ async def handle_group_search(message: types.Message, state: FSMContext):
     search_query = args.strip()
 
     if not search_query:
-        await message.reply("❗ Iltimos, /search buyrug‘i bilan birga qidiruv so‘zini ham yuboring.\nMasalan: <code>/search bella ciao</code>", parse_mode="HTML")
+        await message.reply("❗ Iltimos, /search buyrug‘i bilan birga qidiruv so‘zini ham yuboring.\nMasalan: <code>/search ummon dengiz</code>", parse_mode="HTML")
         return
 
     if len(search_query) < 4:
