@@ -99,6 +99,7 @@ async def handle_format_selection(callback_query: types.CallbackQuery, callback_
             video_data, filepath, filename = await download_video(video_url)
             if not video_data:
                 await callback_query.message.answer("Videoni yuklab olib bo'lmadi!")
+                return
 
             # 3. Upload to Telegram
             msg = await bot.send_video(

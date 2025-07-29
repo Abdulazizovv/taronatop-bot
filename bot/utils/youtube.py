@@ -30,7 +30,7 @@ def extract_video_id(url: str) -> str | None:
 def clean_filename(name: str) -> str:
     return re.sub(r'[\\/*?:"<>|]', "", name)
 
-def safely_remove(filepath: str) -> None:
+async def safely_remove(filepath: str) -> None:
     try:
         if os.path.exists(filepath):
             os.remove(filepath)
@@ -176,7 +176,7 @@ async def download_video(youtube_watch_url: str):
             return BytesIO(f.read()), filename, clean_filename(info.get("title", "Unknown")) + ".mp4"
     except Exception as e:
         logging.error(f"Failed to download video: {str(e)}")
-        raise RuntimeError(f"Video download failed: {str(e)}")
+        return None, None, None
 
 # === CLI Debug Tool ===
 def display_results(results: List[Dict[str, Any]]) -> None:
