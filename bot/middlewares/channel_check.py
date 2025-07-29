@@ -11,6 +11,11 @@ from bot.keyboards.inline.required_chats import chats_kb
 class ChannelCheckMiddleware(BaseMiddleware):
     async def on_pre_process_message(self, message: Message, data: dict):
 
+        # Check if user is blocked
+        if await db.is_user_blocked(message.from_user.id):
+            await message.answer("❗ Siz bloklangansiz!\nIltimos, admin bilan bog'laning.")
+            raise CancelHandler()
+
         # only working on private chats
         if not message.chat.type == "private":
             return

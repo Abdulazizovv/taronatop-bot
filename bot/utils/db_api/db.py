@@ -7,6 +7,16 @@ import logging
 # Database API for Bot User Management
 class DB:
 
+    # User is blocked
+    @staticmethod
+    @sync_to_async
+    def is_user_blocked(user_id: int):
+        try:
+            user = BotUser.objects.get(user_id=user_id)
+            return user.is_blocked
+        except BotUser.DoesNotExist:
+            return False
+
     # Get admins id list
     @staticmethod
     @sync_to_async
