@@ -54,8 +54,8 @@ async def convert_instagram_video_to_audio(insta_url: str) -> Optional[str]:
                     "wait_for_approval": True,
                 }
             },
-            "sleep_interval": 10,
-            "max_sleep_interval": 30,
+            "sleep_interval": 5,
+            "max_sleep_interval": 10,
             "ratelimit": "1M",
             "retries": 3,
             "cookiefile": COOKIE_FILE,
