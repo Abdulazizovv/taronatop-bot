@@ -18,60 +18,132 @@ os.makedirs(TEMP_DIR, exist_ok=True)
 # === Convert Instagram video to audio ===
 async def convert_instagram_video_to_audio(insta_url: str) -> Optional[str]:
     """
-    Convert Instagram video to audio with robust error handling
+    Convert Instagram video to audio with robust error handling and type safety.
+    
+    Args:
+        insta_url: Instagram video URL
+        
+    Returns:
+        Path to downloaded audio file or None if failed
     """
     try:
-        # First verify cookie file exists and is valid
-        if not os.path.exists(COOKIE_FILE):
-            logging.error(f"Cookie file not found at {COOKIE_FILE}")
-            return None
-            
-        try:
-            with open(COOKIE_FILE) as f:
-                content = f.read()
-                if "instagram.com" not in content or "sessionid" not in content:
-                    logging.error("Invalid Instagram cookies")
-                    return None
-        except Exception as e:
-            logging.error(f"Cookie file read error: {str(e)}")
+        # Validate cookie file first
+        if not await _validate_cookie_file():
             return None
 
-        ydl_opts = {
-            "format": "bestaudio/best",
-            "extractaudio": True,
-            "audioformat": "mp3",
-            "outtmpl": os.path.join(TEMP_DIR, "%(title)s.%(ext)s"),
-            "quiet": False,  # Set to False to see more debug info
-            "no_warnings": False,
-            "http_headers": {
-                "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1",
-                "Referer": "https://www.instagram.com/",
-                "X-IG-App-ID": "936619743392459",
-            },
-            "extractor_args": {
-                "instagram": {
-                    "skip_auth_warning": True,
-                    "wait_for_approval": True,
-                }
-            },
-            "sleep_interval": 5,
-            "max_sleep_interval": 10,
-            "ratelimit": "1M",
-            "retries": 3,
-            "cookiefile": COOKIE_FILE,
-            "force_generic_extractor": True,
-            "ignoreerrors": False,  # Show all errors
-        }
-
+        ydl_opts = await _get_ydl_options()
+        
         with YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(insta_url, download=True)
-            title = sanitize_filename(info.get("title", "audio"))
-            ext = info.get("ext", "mp3")
-            filename = os.path.join(TEMP_DIR, f"{title}.{ext}")
+            info = await _extract_info_with_retry(ydl, insta_url)
+            if not info:
+                return None
+
+            filename = await _generate_output_filename(info)
+            if not filename or not os.path.exists(filename):
+                return None
+                
             return filename
 
     except Exception as e:
         logging.error(f"[Audio Extraction Error] {str(e)}", exc_info=True)
+        return None
+
+async def _validate_cookie_file() -> bool:
+    """Validate Instagram cookie file exists and contains valid session"""
+    try:
+        if not os.path.exists(COOKIE_FILE):
+            logging.error(f"Cookie file not found at {COOKIE_FILE}")
+            return False
+            
+        with open(COOKIE_FILE, 'r') as f:
+            content = f.read()
+            if "instagram.com" not in content or "sessionid" not in content:
+                logging.error("Invalid Instagram cookies - missing sessionid")
+                return False
+                
+        return True
+    except Exception as e:
+        logging.error(f"Cookie validation failed: {str(e)}")
+        return False
+
+async def _get_ydl_options() -> dict:
+    """Get optimized yt-dlp options for Instagram"""
+    return {
+        "format": "bestaudio/best",
+        "extractaudio": True,
+        "audioformat": "mp3",
+        "outtmpl": os.path.join(TEMP_DIR, "%(title)s.%(ext)s"),
+        "quiet": False,
+        "no_warnings": False,
+        "http_headers": {
+            "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1",
+            "Referer": "https://www.instagram.com/",
+            "X-IG-App-ID": "936619743392459",
+            "X-Requested-With": "XMLHttpRequest",
+        },
+        "extractor_args": {
+            "instagram": {
+                "skip_auth_warning": True,
+                "wait_for_approval": False,  # Disable to prevent string/float issues
+            }
+        },
+        "sleep_interval": 8,
+        "max_sleep_interval": 20,
+        "ratelimit": "1.5M",
+        "retries": 5,
+        "cookiefile": COOKIE_FILE,
+        "force_generic_extractor": True,
+        "ignoreerrors": False,
+        "postprocessor_args": {
+            "ffmpeg": ["-loglevel", "error"]  # Quieter FFmpeg output
+        },
+    }
+
+async def _extract_info_with_retry(ydl: YoutubeDL, url: str) -> Optional[dict]:
+    """Extract media info with retry logic and fallback methods"""
+    try:
+        # First try with standard extraction
+        info = ydl.sanitize_info(ydl.extract_info(url, download=True))
+        
+        # If failed or no duration (indicates possible error), try embed method
+        if not info or not info.get('duration'):
+            logging.warning("Trying embed page fallback")
+            ydl.params['extractor_args']['instagram']['use_embed_page'] = True
+            info = ydl.sanitize_info(ydl.extract_info(url, download=True))
+            
+        return info if info and info.get('duration') else None
+        
+    except Exception as e:
+        logging.error(f"Info extraction failed: {str(e)}")
+        return None
+
+async def _generate_output_filename(info: dict) -> Optional[str]:
+    """Generate safe output filename from extracted info"""
+    try:
+        # Safely handle title with fallbacks
+        title = "instagram_audio_" + str(info.get('id', ''))[:20]
+        if 'title' in info:
+            try:
+                title = sanitize_filename(str(info['title']))[:50]  # Limit length
+            except:
+                pass
+                
+        # Ensure extension is valid
+        ext = str(info.get('ext', 'mp3')).lower()
+        if ext not in ['mp3', 'm4a', 'ogg']:
+            ext = 'mp3'
+            
+        filename = os.path.join(TEMP_DIR, f"{title}.{ext}")
+        
+        # Verify file exists and has content
+        if os.path.exists(filename) and os.path.getsize(filename) > 1024:
+            return filename
+            
+        logging.error(f"Output file invalid: {filename}")
+        return None
+        
+    except Exception as e:
+        logging.error(f"Filename generation failed: {str(e)}")
         return None
 
 
