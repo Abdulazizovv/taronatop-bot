@@ -2,6 +2,10 @@ from asgiref.sync import sync_to_async
 from botapp.models import BotUser, BotChat, YoutubeAudio, YoutubeVideo, InstagramMedia, TikTokMedia, SearchQuery
 import logging
 
+from reklama.models import (
+    AdPostTg, AdPostButton, Advertisement
+)
+
 
 
 # Database API for Bot User Management
@@ -14,6 +18,16 @@ class DB:
         try:
             user = BotUser.objects.get(user_id=user_id)
             return user.is_blocked
+        except BotUser.DoesNotExist:
+            return False
+        
+    # User is admin
+    @staticmethod
+    @sync_to_async
+    def is_user_admin(user_id: int):
+        try:
+            user = BotUser.objects.get(user_id=user_id)
+            return user.is_admin
         except BotUser.DoesNotExist:
             return False
 
@@ -558,4 +572,27 @@ class DB:
             "count": search_query.count,
             "created_at": search_query.created_at,
             "last_searched": search_query.last_searched,
+        }
+    
+
+    # Save ad post
+    @staticmethod
+    @sync_to_async
+    def save_ad_post(message_id: str, user_id: str | None = None):
+        user = BotUser.objects.filter(user_id=user_id).first()
+
+        ad_post, created = AdPostTg.objects.get_or_create(
+            message_id=message_id,
+            defaults={'user': user}
+        )
+        if created:
+            logging.info(f"New ad post created: {message_id} by user {user_id}")
+        else:
+            logging.info(f"Ad post updated: {message_id} by user {user_id}")
+        return {
+            "id": ad_post.id,
+            "message_id": ad_post.message_id,
+            "user_id": ad_post.user.user_id if ad_post.user else None,
+            "created_at": ad_post.created_at,
+            "updated_at": ad_post.updated_at
         }
