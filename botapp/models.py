@@ -176,3 +176,20 @@ class TikTokMedia(models.Model):
         verbose_name = "TikTok Media"
         verbose_name_plural = "TikTok Media"
         ordering = ['-created_at']
+
+
+# === Seach History ===
+class SearchQuery(models.Model):
+    query = models.CharField(max_length=255)
+    user: "BotUser" = models.ForeignKey(BotUser, on_delete=models.SET_NULL, null=True, blank=True)
+    count = models.PositiveIntegerField(default=1)
+    last_searched = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-count', '-last_searched']
+        verbose_name = "Search Query"
+        verbose_name_plural = "Search Queries"
+
+    def __str__(self):
+        return f"{self.query} ({self.count} times)"

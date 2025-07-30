@@ -1,5 +1,7 @@
 from django.contrib import admin
-from botapp.models import BotUser, BotChat, YoutubeAudio, YoutubeVideo, InstagramMedia, TikTokMedia
+from botapp.models import BotUser, BotChat, YoutubeAudio, YoutubeVideo, InstagramMedia, TikTokMedia, SearchQuery
+from django.utils.html import format_html
+from django.db.models import Sum
 
 
 @admin.register(BotUser)
@@ -112,3 +114,29 @@ class TikTokMediaAdmin(admin.ModelAdmin):
         return False
     def has_delete_permission(self, request, obj=None):
         return False
+    
+
+@admin.register(SearchQuery)
+class SearchQueryAdmin(admin.ModelAdmin):
+    list_display = ('query', 'user', 'count', 'last_searched', 'created_at', 'query_bar')
+    list_filter = ('last_searched', 'created_at', 'user')
+    search_fields = ('query', 'user__username')
+    readonly_fields = ('count', 'last_searched', 'created_at')
+
+    def query_bar(self, obj):
+        max_count = SearchQuery.objects.aggregate(max_count=Sum('count'))['max_count'] or 1
+        width = int((obj.count / max_count) * 100)
+        return format_html(
+            '<div style="background:#eee;"><div style="width:{}%;background:#4caf50;color:white;padding:2px 5px;">{}</div></div>',
+            width, obj.count
+        )
+    query_bar.short_description = "Count Bar"
+
+    def has_add_permission(self, request, obj=None):
+        return False
+    def has_change_permission(self, request, obj=None):
+        return False
+    def has_delete_permission(self, request, obj=None):
+        return False
+    def has_view_permission(self, request, obj=None):
+        return True

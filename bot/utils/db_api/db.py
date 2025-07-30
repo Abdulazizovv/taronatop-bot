@@ -1,5 +1,5 @@
 from asgiref.sync import sync_to_async
-from botapp.models import BotUser, BotChat, YoutubeAudio, YoutubeVideo, InstagramMedia, TikTokMedia
+from botapp.models import BotUser, BotChat, YoutubeAudio, YoutubeVideo, InstagramMedia, TikTokMedia, SearchQuery
 import logging
 
 
@@ -521,3 +521,41 @@ class DB:
             return True
         except (TikTokMedia.DoesNotExist, YoutubeAudio.DoesNotExist):
             return False
+        
+    
+    # Get all TikTok media for a user
+    @staticmethod
+    @sync_to_async
+    def get_tiktok_media_by_user(user_id: int):
+        media = TikTokMedia.objects.filter(user_id=user_id).values(
+            'media_id', 'title', 'video_url', 'telegram_file_id', 'thumbnail', 'duration', 'track', 'artist', 'created_at', 'updated_at'
+        )
+        return list(media)
+    
+
+    # Save search query
+    @staticmethod
+    @sync_to_async
+    def save_search_query(query: str, user_id: int):
+        user = BotUser.objects.filter(user_id=user_id).first() if user_id else None
+
+        search_query, created = SearchQuery.objects.get_or_create(
+            query=query,
+            user=user,
+            defaults={'count': 1}
+        )
+
+        if not created:
+            search_query.count += 1
+            search_query.save()
+
+        logging.info(f"{'Created' if created else 'Updated'} search query: {query} by user {user_id}")
+
+        return {
+            "id": search_query.id,
+            "query": search_query.query,
+            "user_id": search_query.user.user_id if search_query.user else None,
+            "count": search_query.count,
+            "created_at": search_query.created_at,
+            "last_searched": search_query.last_searched,
+        }

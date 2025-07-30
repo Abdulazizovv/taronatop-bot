@@ -94,6 +94,12 @@ async def handle_search(message: types.Message, state: FSMContext):
     # --- Oddiy matn bo‘yicha YouTube qidiruvi ---
     try:
         search_msg = await message.answer("🔍 Qidirilmoqda...")
+        
+        # Qidiruvni saqlab olish
+        await db.save_search_query(
+            user_id=message.from_user.id,
+            query=search_query
+        )
 
         youtube = YouTubeSearch(search_query, max_results=MAX_SEARCH_RESULTS)
         results = youtube.to_dict()
