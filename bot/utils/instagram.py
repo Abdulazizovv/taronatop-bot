@@ -36,6 +36,12 @@ async def convert_instagram_video_to_audio(insta_url: str) -> Optional[str]:
             "http_headers": {
                 "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1",
                 "Referer": "https://www.instagram.com/",
+                "X-IG-App-ID": "936619743392459",  # Important Instagram header
+            },
+            "extractor_args": {
+                "instagram": {
+                    "skip_auth_warning": True,
+                }
             },
             "sleep_interval": 5,
             "max_sleep_interval": 10,
@@ -200,25 +206,57 @@ async def download_instagram_media(insta_url: str) -> Optional[tuple[str, str, s
         tuple: (file_path, file_name, title) yoki None agar xatolik yuz bersa
     """
     try:
+        # First verify cookie file exists
+        if not os.path.exists(COOKIE_FILE):
+            logging.error(f"Cookie file not found at {COOKIE_FILE}")
+            return None
+            
+        # Verify cookie file is readable
+        try:
+            with open(COOKIE_FILE) as f:
+                if "instagram.com" not in f.read():
+                    logging.error("Cookie file doesn't contain Instagram cookies")
+                    return None
+        except Exception as e:
+            logging.error(f"Error reading cookie file: {str(e)}")
+            return None
+
         ydl_opts = {
             "format": "best",
-            "quiet": True,
+            "quiet": False,  # Temporarily set to False for debugging
             "outtmpl": os.path.join(TEMP_DIR, "%(title)s.%(ext)s"),
+            "cookiefile": COOKIE_FILE,
+            "http_headers": {
+                "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1",
+                "Referer": "https://www.instagram.com/",
+                "X-IG-App-ID": "936619743392459",  # Important Instagram header
+            },
+            "extractor_args": {
+                "instagram": {
+                    "skip_auth_warning": True,
+                }
+            },
+            "sleep_interval": 10,
+            "max_sleep_interval": 30,
+            "retries": 3,
+            "ignoreerrors": False,  # Set to False to see actual errors
         }
 
         with YoutubeDL(ydl_opts) as ydl:
+            # Add verbose logging
+            ydl.add_default_info_extractors()
             info = ydl.extract_info(insta_url, download=True)
+            
+            if not info:
+                logging.error("No info extracted from URL")
+                return None
+                
             title = sanitize_filename(info.get("title", "Instagram Media"))
             ext = info.get("ext", "mp4")
             file_path = os.path.join(TEMP_DIR, f"{title}.{ext}")
-
-            if os.path.exists(file_path):
-                # Fayl allaqachon mavjud bo'lsa, uni yuklab o'tirmaymiz
-                return file_path, title, info.get("id")
-
+            
             return file_path, title, info.get("id")
 
     except Exception as e:
-        logging.error(f"[Download Error] {e}")
+        logging.error(f"[Instagram Download Error] {str(e)}", exc_info=True)
         return None
-    return None, None, None
