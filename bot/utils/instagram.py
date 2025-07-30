@@ -18,48 +18,85 @@ os.makedirs(TEMP_DIR, exist_ok=True)
 # === Convert Instagram video to audio ===
 async def convert_instagram_video_to_audio(insta_url: str) -> Optional[str]:
     """
-    Instagram video URL'dan audio fayl yaratadi va lokalga saqlaydi.
-    
-    Args:
-        insta_url (str): Instagram video URL
-    
-    Returns:
-        str: Audio faylning lokal yo'li yoki None agar xatolik yuz bersa
+    Convert Instagram video to audio with robust error handling
     """
     try:
+        # First verify cookie file exists and is valid
+        if not os.path.exists(COOKIE_FILE):
+            logging.error(f"Cookie file not found at {COOKIE_FILE}")
+            return None
+            
+        try:
+            with open(COOKIE_FILE) as f:
+                content = f.read()
+                if "instagram.com" not in content or "sessionid" not in content:
+                    logging.error("Invalid Instagram cookies")
+                    return None
+        except Exception as e:
+            logging.error(f"Cookie file read error: {str(e)}")
+            return None
+
         ydl_opts = {
             "format": "bestaudio/best",
             "extractaudio": True,
             "audioformat": "mp3",
             "outtmpl": os.path.join(TEMP_DIR, "%(title)s.%(ext)s"),
-            "quiet": True,
+            "quiet": False,  # Set to False to see more debug info
+            "no_warnings": False,
             "http_headers": {
                 "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1",
                 "Referer": "https://www.instagram.com/",
-                "X-IG-App-ID": "936619743392459",  # Important Instagram header
+                "X-IG-App-ID": "936619743392459",
             },
             "extractor_args": {
                 "instagram": {
                     "skip_auth_warning": True,
+                    "wait_for_approval": True,
                 }
             },
-            "sleep_interval": 5,
-            "max_sleep_interval": 10,
+            "sleep_interval": 10,
+            "max_sleep_interval": 30,
             "ratelimit": "1M",
             "retries": 3,
             "cookiefile": COOKIE_FILE,
             "force_generic_extractor": True,
+            "ignoreerrors": False,  # Show all errors
         }
 
         with YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(insta_url, download=True)
-            title = sanitize_filename(info.get("title", "audio"))
-            ext = info.get("ext", "mp3")
+            # First try with standard extractor
+            try:
+                info = ydl.extract_info(insta_url, download=True)
+            except Exception as e:
+                logging.warning(f"Standard extraction failed, trying fallback: {str(e)}")
+                # Try with embed page fallback
+                ydl_opts['extractor_args']['instagram']['use_embed_page'] = True
+                info = ydl.extract_info(insta_url, download=True)
+
+            if not info:
+                logging.error("No media info extracted")
+                return None
+
+            # Safely handle title and extension
+            title = "instagram_audio"
+            if 'title' in info:
+                try:
+                    title = sanitize_filename(str(info['title']))
+                except:
+                    title = "instagram_audio"
+            
+            ext = info.get('ext', 'mp3')
             filename = os.path.join(TEMP_DIR, f"{title}.{ext}")
+            
+            # Verify file was actually created
+            if not os.path.exists(filename):
+                logging.error(f"Output file not created: {filename}")
+                return None
+                
             return filename
 
     except Exception as e:
-        logging.error(f"[Audio Extraction Error] {e}")
+        logging.error(f"[Audio Extraction Error] {str(e)}", exc_info=True)
         return None
 
 
