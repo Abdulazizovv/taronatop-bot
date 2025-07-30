@@ -64,35 +64,10 @@ async def convert_instagram_video_to_audio(insta_url: str) -> Optional[str]:
         }
 
         with YoutubeDL(ydl_opts) as ydl:
-            # First try with standard extractor
-            try:
-                info = ydl.extract_info(insta_url, download=True)
-            except Exception as e:
-                logging.warning(f"Standard extraction failed, trying fallback: {str(e)}")
-                # Try with embed page fallback
-                ydl_opts['extractor_args']['instagram']['use_embed_page'] = True
-                info = ydl.extract_info(insta_url, download=True)
-
-            if not info:
-                logging.error("No media info extracted")
-                return None
-
-            # Safely handle title and extension
-            title = "instagram_audio"
-            if 'title' in info:
-                try:
-                    title = sanitize_filename(str(info['title']))
-                except:
-                    title = "instagram_audio"
-            
-            ext = info.get('ext', 'mp3')
+            info = ydl.extract_info(insta_url, download=True)
+            title = sanitize_filename(info.get("title", "audio"))
+            ext = info.get("ext", "mp3")
             filename = os.path.join(TEMP_DIR, f"{title}.{ext}")
-            
-            # Verify file was actually created
-            if not os.path.exists(filename):
-                logging.error(f"Output file not created: {filename}")
-                return None
-                
             return filename
 
     except Exception as e:
