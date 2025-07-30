@@ -11,6 +11,7 @@ from uuid import uuid4
 
 # === Constants ===
 TEMP_DIR = "/var/tmp/taronatop_bot"
+COOKIE_FILE = os.path.join("/usr/src/app", "cookies.txt")
 os.makedirs(TEMP_DIR, exist_ok=True)
 
 
@@ -32,6 +33,15 @@ async def convert_instagram_video_to_audio(insta_url: str) -> Optional[str]:
             "audioformat": "mp3",
             "outtmpl": os.path.join(TEMP_DIR, "%(title)s.%(ext)s"),
             "quiet": True,
+            "http_headers": {
+                "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1",
+                "Referer": "https://www.instagram.com/",
+            },
+            "sleep_interval": 5,
+            "max_sleep_interval": 10,
+            "ratelimit": "1M",
+            "retries": 3,
+            "cookiefile": COOKIE_FILE,
             "force_generic_extractor": True,
         }
 
@@ -148,8 +158,17 @@ async def get_instagram_media_info(insta_url: str) -> Optional[Dict[str, str]]:
     try:
         ydl_opts = {
             "quiet": True,
+            "http_headers": {
+                "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1",
+                "Referer": "https://www.instagram.com/",
+            },
+            "sleep_interval": 5,
+            "max_sleep_interval": 10,
+            "ratelimit": "1M",
+            "retries": 3,
             "skip_download": True,
-            "force_generic_extractor": True
+            "force_generic_extractor": True,
+            "cookiefile": COOKIE_FILE,
         }
 
         with YoutubeDL(ydl_opts) as ydl:
