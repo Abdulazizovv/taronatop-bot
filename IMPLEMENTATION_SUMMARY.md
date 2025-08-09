@@ -10,15 +10,23 @@
    - Automatic file type detection
    - Duration limiting for optimal processing
 
-2. **Enhanced Private Chat Handler** (`bot/handlers/users/get_voice.py`)
+2. **Song Information Display** (`bot/utils/song_info_formatter.py`) ⭐ NEW
+   - Rich song information formatting with HTML
+   - Displays song title, artist, genre, year, label when available
+   - Immediate feedback when song is recognized
+   - Enhanced user experience with beautiful formatting
+
+3. **Enhanced Private Chat Handler** (`bot/handlers/users/get_voice.py`)
    - Supports voice messages, videos, audio files, video notes, and documents
    - File size validation (50MB limit)
+   - Song display feature - shows found song immediately
    - Improved error handling and user feedback
    - Automatic temporary file cleanup
 
-3. **Enhanced Group Chat Handler** (`bot/handlers/groups/shazam.py`)
+4. **Enhanced Group Chat Handler** (`bot/handlers/groups/shazam.py`)
    - Extended /find command to support all media types
    - Reply-based media recognition
+   - Song display feature - shows found song immediately
    - Same file processing capabilities as private chats
 
 ### 📱 Supported Media Types
@@ -39,10 +47,13 @@
 
 ## 🎯 How Users Can Use It
 
-### Private Chats
+### Private Chats - Enhanced Experience ⭐
 ```
-📱 User Action: Send any of these media types
-🤖 Bot Response: Automatically recognizes music and downloads it
+📱 User Action: Send any media type
+🔍 Bot: "Musiqa aniqlanmoqda..."
+🎵 Bot: Displays song info (title, artist, genre, year)
+🔄 Bot: "Musiqa yuklanmoqda..."
+🎵 Bot: Sends the audio file
 
 Supported:
 ✅ Voice message
@@ -52,11 +63,14 @@ Supported:
 ✅ Audio/video document
 ```
 
-### Group Chats
+### Group Chats - Enhanced Experience ⭐
 ```
 👤 User1: [sends video/audio/voice]
 👤 User2: /find (replies to the media)
-🤖 Bot: [recognizes music and downloads it]
+🔍 Bot: "Musiqa aniqlanmoqda..."
+🎵 Bot: Displays song info (title, artist, genre, year)
+🔄 Bot: "Musiqa yuklanmoqda..."
+🎵 Bot: Sends the audio file
 
 Supported:
 ✅ Reply to voice message with /find
@@ -104,16 +118,26 @@ All required dependencies already exist in `requirements.txt`:
 
 ### ✅ Implementation Status
 - [x] Audio extraction utility
+- [x] Song information display feature ⭐ NEW
 - [x] Private chat handler enhancement
 - [x] Group chat handler enhancement  
 - [x] Error handling and validation
 - [x] File cleanup and resource management
 - [x] Documentation and testing
 
-### 🎉 Our bot now supports:
+### 🎉 Your bot now supports:
 - **Voice messages** (existing)
 - **Video files** with music (NEW)
 - **Audio files** (NEW)
+- **Video notes** (NEW)
+- **Audio/video documents** (NEW)
+- **Rich song display** - Shows song info immediately when found ⭐ NEW
+
+### 📱 Enhanced User Experience:
+- **Immediate feedback** when song is recognized
+- **Rich formatting** with song title, artist, genre, year
+- **Progress indicators** throughout the recognition process
+- **Beautiful HTML formatting** with emojis and styling
 - **Video notes** (NEW)
 - **Audio/video documents** (NEW)
 

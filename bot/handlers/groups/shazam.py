@@ -9,6 +9,7 @@ from bot.utils.audio_extractor import (
     get_file_from_message,
     get_file_extension_for_type
 )
+from bot.utils.song_info_formatter import format_song_info
 from yt_dlp import YoutubeDL
 import os
 import logging
@@ -87,6 +88,10 @@ async def find_music_from_media_reply(message: types.Message):
         title = track['title']
         subtitle = track['subtitle']
         query = f"{title} {subtitle}"
+
+        # Display found song information with enhanced formatting
+        song_info = format_song_info(track)
+        await message.reply(song_info, parse_mode="HTML")
 
         # YouTube'dan qidirish
         ydl_opts = {
