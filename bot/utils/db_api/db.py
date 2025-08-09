@@ -603,6 +603,39 @@ class DB:
         }
     
 
+    # === Statistics Functions ===
+    
+    # Get total users count
+    @staticmethod
+    @sync_to_async
+    def get_users_count():
+        return BotUser.objects.count()
+    
+    # Get active users count
+    @staticmethod
+    @sync_to_async
+    def get_active_users_count():
+        return BotUser.objects.filter(is_active=True).count()
+    
+    # Get blocked users count  
+    @staticmethod
+    @sync_to_async
+    def get_blocked_users_count():
+        return BotUser.objects.filter(is_blocked=True).count()
+    
+    # Get total chats count
+    @staticmethod
+    @sync_to_async
+    def get_chats_count():
+        return BotChat.objects.count()
+    
+    # Get active chats count
+    @staticmethod
+    @sync_to_async
+    def get_active_chats_count():
+        return BotChat.objects.filter(is_active=True).count()
+
+
     # Save ad post
     @staticmethod
     @sync_to_async

@@ -133,3 +133,7 @@ dmypy.json
 # Migration files
 **/migrations/**.py
 !**/migrations/__init__.py
+
+# Media files
+*.mp3
+*.mp4

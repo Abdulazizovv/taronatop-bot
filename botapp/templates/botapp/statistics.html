@@ -1,0 +1,167 @@
+{% extends 'botapp/base.html' %}
+
+{% block title %}Bot Statistikalari Boshqaruv Paneli{% endblock %}
+{% block page_title %}Bot Statistikalari Boshqaruv Paneli{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <h3>👥 Jami Foydalanuvchilar</h3>
+        <div class="stat-number">{{ total_users|floatformat:0 }}</div>
+        <div class="stat-label">Ro'yxatdan o'tgan</div>
+    </div>
+    
+    <div class="stat-card">
+        <h3>✅ Faol Foydalanuvchilar</h3>
+        <div class="stat-number">{{ active_users|floatformat:0 }}</div>
+        <div class="stat-label">Hozirda faol</div>
+    </div>
+    
+    <div class="stat-card">
+        <h3>🚫 Bloklangan Foydalanuvchilar</h3>
+        <div class="stat-number">{{ blocked_users|floatformat:0 }}</div>
+        <div class="stat-label">Botni bloklagan</div>
+    </div>
+    
+    <div class="stat-card">
+        <h3>💬 Faol Chatlar</h3>
+        <div class="stat-number">{{ active_chats|floatformat:0 }}</div>
+        <div class="stat-label">{{ total_chats }} dan</div>
+    </div>
+    
+    <div class="stat-card">
+        <h3>📥 Jami Yuklamalar</h3>
+        <div class="stat-number">{{ total_downloads|floatformat:0 }}</div>
+        <div class="stat-label">Barcha platformalar</div>
+    </div>
+    
+    <div class="stat-card">
+        <h3>🔍 Jami Qidiruvlar</h3>
+        <div class="stat-number">{{ total_searches|floatformat:0 }}</div>
+        <div class="stat-label">Qidiruv so'rovlari</div>
+    </div>
+    
+    <div class="stat-card">
+        <h3>🆕 Yangi Foydalanuvchilar</h3>
+        <div class="stat-number">{{ recent_users|floatformat:0 }}</div>
+        <div class="stat-label">So'nggi 30 kun</div>
+    </div>
+    
+    <div class="stat-card">
+        <h3>📈 So'nggi Yuklamalar</h3>
+        <div class="stat-number">{{ recent_downloads|floatformat:0 }}</div>
+        <div class="stat-label">So'nggi 30 kun</div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+    <div class="chart-container">
+        <h3>📊 Platform bo'yicha Taqsimot</h3>
+        <div class="chart-wrapper">
+            <canvas id="platformChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="top-searches">
+        <h3>🔥 Mashhur Qidiruvlar</h3>
+        {% if top_searches %}
+            {% for search in top_searches %}
+            <div class="search-item">
+                <span class="search-query">{{ search.query }}</span>
+                <span class="search-count">{{ search.count }} marta</span>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="search-item">
+                <span class="search-query">Hali qidiruvlar yo'q</span>
+                <span class="search-count">0</span>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="chart-container">
+    <h3>📈 Faollik Tendensiyalari (So'nggi 30 kun)</h3>
+    <div class="chart-wrapper">
+        <canvas id="trendChart"></canvas>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+// Platform distribution chart
+const platformCtx = document.getElementById('platformChart').getContext('2d');
+new Chart(platformCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['YouTube', 'Instagram', 'TikTok'],
+        datasets: [{
+            data: [{{ youtube_downloads }}, {{ instagram_downloads }}, {{ tiktok_downloads }}],
+            backgroundColor: [
+                '#FF6384',
+                '#36A2EB', 
+                '#FFCE56'
+            ],
+            borderWidth: 2,
+            borderColor: '#fff'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    padding: 20
+                }
+            }
+        }
+    }
+});
+
+// Load trend data and create chart
+fetch('{% url "botapp:statistics_api" %}?days=30')
+    .then(response => response.json())
+    .then(data => {
+        const trendCtx = document.getElementById('trendChart').getContext('2d');
+        new Chart(trendCtx, {
+            type: 'line',
+            data: {
+                labels: data.user_data.map(d => d.date),
+                datasets: [{
+                    label: 'Yangi Foydalanuvchilar',
+                    data: data.user_data.map(d => d.users),
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    tension: 0.4
+                }, {
+                    label: 'Yuklamalar',
+                    data: data.download_data.map(d => d.downloads),
+                    borderColor: '#764ba2',
+                    backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    }
+                }
+            }
+        });
+    })
+    .catch(error => {
+        console.error('Trend ma\'lumotlarini yuklashda xatolik:', error);
+        document.getElementById('trendChart').parentElement.innerHTML = 
+            '<div class="loading">Trend ma\'lumotlarini yuklashda xatolik</div>';
+    });
+{% endblock %}

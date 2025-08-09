@@ -1,0 +1,157 @@
+{% extends 'botapp/base.html' %}
+
+{% block title %}Foydalanuvchilar Tahlili{% endblock %}
+{% block page_title %}Foydalanuvchilar Tahlili{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <h3>✅ Faol Foydalanuvchilar</h3>
+        <div class="stat-number">{{ status_stats.active|floatformat:0 }}</div>
+        <div class="stat-label">Hozirda faol</div>
+    </div>
+    
+    <div class="stat-card">
+        <h3>🚫 Bloklangan Foydalanuvchilar</h3>
+        <div class="stat-number">{{ status_stats.blocked|floatformat:0 }}</div>
+        <div class="stat-label">Botni bloklagan</div>
+    </div>
+    
+    <div class="stat-card">
+        <h3>👑 Admin Foydalanuvchilar</h3>
+        <div class="stat-number">{{ status_stats.admin|floatformat:0 }}</div>
+        <div class="stat-label">Bot administratorlari</div>
+    </div>
+    
+    <div class="stat-card">
+        <h3>🆕 So'nggi Ro'yxatdan O'tishlar</h3>
+        <div class="stat-number">{{ recent_users|length|floatformat:0 }}</div>
+        <div class="stat-label">So'nggi 7 kun</div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+    <div class="chart-container">
+        <h3>🌍 Til bo'yicha Taqsimot</h3>
+        <div class="chart-wrapper">
+            <canvas id="languageChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="chart-container">
+        <h3>📊 Foydalanuvchi Holati</h3>
+        <div class="chart-wrapper">
+            <canvas id="statusChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="chart-container">
+    <h3>👥 So'nggi Foydalanuvchi Ro'yxatdan O'tishlari (So'nggi 50 ta)</h3>
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: #f8f9fa;">
+                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Foydalanuvchi ID</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Ism</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Foydalanuvchi nomi</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Til</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Holat</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Ro'yxatdan o'tgan</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in recent_users %}
+                <tr style="border-bottom: 1px solid #dee2e6;">
+                    <td style="padding: 12px;">{{ user.user_id }}</td>
+                    <td style="padding: 12px;">{{ user.full_name|default:"—" }}</td>
+                    <td style="padding: 12px;">
+                        {% if user.username %}@{{ user.username }}{% else %}—{% endif %}
+                    </td>
+                    <td style="padding: 12px;">{{ user.language_code|default:"—" }}</td>
+                    <td style="padding: 12px;">
+                        {% if user.is_admin %}
+                            <span style="background: #dc3545; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;">Admin</span>
+                        {% elif not user.is_active %}
+                            <span style="background: #6c757d; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;">Nofaol</span>
+                        {% elif user.is_blocked %}
+                            <span style="background: #ffc107; color: black; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;">Bloklangan</span>
+                        {% else %}
+                            <span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;">Faol</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 12px;">{{ user.created_at|date:"Y-m-d H:i" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="padding: 20px; text-align: center; color: #666;">So'nggi foydalanuvchilar yo'q</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+// Language distribution chart
+const languageCtx = document.getElementById('languageChart').getContext('2d');
+new Chart(languageCtx, {
+    type: 'bar',
+    data: {
+        labels: [{% for lang in language_stats %}'{{ lang.language_code|default:"Noma'lum" }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+        datasets: [{
+            label: 'Foydalanuvchilar',
+            data: [{% for lang in language_stats %}{{ lang.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+            backgroundColor: '#667eea',
+            borderColor: '#5a6fd8',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        },
+        plugins: {
+            legend: {
+                display: false
+            }
+        }
+    }
+});
+
+// Status distribution chart
+const statusCtx = document.getElementById('statusChart').getContext('2d');
+new Chart(statusCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Faol', 'Bloklangan', 'Admin'],
+        datasets: [{
+            data: [{{ status_stats.active }}, {{ status_stats.blocked }}, {{ status_stats.admin }}],
+            backgroundColor: [
+                '#28a745',
+                '#ffc107',
+                '#dc3545'
+            ],
+            borderWidth: 2,
+            borderColor: '#fff'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    padding: 20
+                }
+            }
+        }
+    }
+});
+{% endblock %}

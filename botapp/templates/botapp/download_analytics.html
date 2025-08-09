@@ -1,0 +1,154 @@
+{% extends 'botapp/base.html' %}
+
+{% block title %}Yuklamalar Tahlili{% endblock %}
+{% block page_title %}Yuklamalar Tahlili{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <h3>🎵 YouTube Yuklamalari</h3>
+        <div class="stat-number">{{ platform_stats.youtube|floatformat:0 }}</div>
+        <div class="stat-label">Audio yuklamalari</div>
+    </div>
+    
+    <div class="stat-card">
+        <h3>📸 Instagram Yuklamalari</h3>
+        <div class="stat-number">{{ platform_stats.instagram|floatformat:0 }}</div>
+        <div class="stat-label">Media yuklamalari</div>
+    </div>
+    
+    <div class="stat-card">
+        <h3>🎥 TikTok Yuklamalari</h3>
+        <div class="stat-number">{{ platform_stats.tiktok|floatformat:0 }}</div>
+        <div class="stat-label">Video yuklamalari</div>
+    </div>
+    
+    <div class="stat-card">
+        <h3>📦 Jami Yuklamalar</h3>
+        <div class="stat-number">{{ platform_stats.youtube|add:platform_stats.instagram|add:platform_stats.tiktok|floatformat:0 }}</div>
+        <div class="stat-label">Barcha platformalar</div>
+    </div>
+</div>
+
+<div class="chart-container">
+    <h3>📈 Yuklama Tendensiyalari (So'nggi 30 kun)</h3>
+    <div class="chart-wrapper">
+        <canvas id="downloadTrendChart"></canvas>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px;">
+    <div class="chart-container">
+        <h3>🎵 So'nggi YouTube Yuklamalari</h3>
+        <div style="max-height: 400px; overflow-y: auto;">
+            {% for download in recent_downloads.youtube %}
+            <div style="padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-weight: bold; color: #333;">{{ download.title|truncatechars:40 }}</div>
+                    <div style="color: #666; font-size: 0.9em;">{{ download.created_at|date:"M d, H:i" }}</div>
+                </div>
+                <div style="color: #667eea; font-size: 0.8em;">
+                    {% if download.duration %}{{ download.duration }}s{% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div style="padding: 20px; text-align: center; color: #666;">Hali YouTube yuklamalari yo'q</div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="chart-container">
+        <h3>📸 So'nggi Instagram Yuklamalari</h3>
+        <div style="max-height: 400px; overflow-y: auto;">
+            {% for download in recent_downloads.instagram %}
+            <div style="padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-weight: bold; color: #333;">{{ download.title|truncatechars:40 }}</div>
+                    <div style="color: #666; font-size: 0.9em;">{{ download.created_at|date:"M d, H:i" }}</div>
+                </div>
+                <div style="color: #667eea; font-size: 0.8em;">
+                    {{ download.media_type|title }}
+                </div>
+            </div>
+            {% empty %}
+            <div style="padding: 20px; text-align: center; color: #666;">Hali Instagram yuklamalari yo'q</div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="chart-container">
+        <h3>🎥 So'nggi TikTok Yuklamalari</h3>
+        <div style="max-height: 400px; overflow-y: auto;">
+            {% for download in recent_downloads.tiktok %}
+            <div style="padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-weight: bold; color: #333;">{{ download.title|truncatechars:40 }}</div>
+                    <div style="color: #666; font-size: 0.9em;">{{ download.created_at|date:"M d, H:i" }}</div>
+                    {% if download.artist %}
+                    <div style="color: #888; font-size: 0.8em;">{{ download.artist }} tomonidan</div>
+                    {% endif %}
+                </div>
+                <div style="color: #667eea; font-size: 0.8em;">
+                    {% if download.duration %}{{ download.duration }}s{% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div style="padding: 20px; text-align: center; color: #666;">Hali TikTok yuklamalari yo'q</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+// Download trends chart
+const downloadTrendCtx = document.getElementById('downloadTrendChart').getContext('2d');
+
+const downloadTrends = {{ download_trends|safe }};
+new Chart(downloadTrendCtx, {
+    type: 'line',
+    data: {
+        labels: downloadTrends.map(d => d.date),
+        datasets: [{
+            label: 'YouTube',
+            data: downloadTrends.map(d => d.youtube),
+            borderColor: '#FF6384',
+            backgroundColor: 'rgba(255, 99, 132, 0.1)',
+            tension: 0.4
+        }, {
+            label: 'Instagram',
+            data: downloadTrends.map(d => d.instagram),
+            borderColor: '#36A2EB',
+            backgroundColor: 'rgba(54, 162, 235, 0.1)',
+            tension: 0.4
+        }, {
+            label: 'TikTok',
+            data: downloadTrends.map(d => d.tiktok),
+            borderColor: '#FFCE56',
+            backgroundColor: 'rgba(255, 206, 86, 0.1)',
+            tension: 0.4
+        }, {
+            label: 'Jami',
+            data: downloadTrends.map(d => d.total),
+            borderColor: '#4BC0C0',
+            backgroundColor: 'rgba(75, 192, 192, 0.1)',
+            tension: 0.4,
+            borderWidth: 3
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        },
+        plugins: {
+            legend: {
+                position: 'top'
+            }
+        }
+    }
+});
+{% endblock %}
