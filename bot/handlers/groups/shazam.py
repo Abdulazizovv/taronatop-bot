@@ -3,6 +3,12 @@ from bot.loader import dp, db, bot
 from shazamio import Shazam
 from bot.data.config import PRIVATE_CHANNEL_ID
 from bot.filters.is_group import IsGroup
+from bot.utils.audio_extractor import (
+    extract_audio_for_shazam, 
+    get_file_type_from_message, 
+    get_file_from_message,
+    get_file_extension_for_type
+)
 from yt_dlp import YoutubeDL
 import os
 import logging
@@ -17,28 +23,64 @@ def extract_video_id_from_url(url: str) -> str | None:
 
 
 @dp.message_handler(IsGroup(), commands=["find"])
-async def find_music_from_voice_reply(message: types.Message):
-    # Faqat ovozli xabarga javoban ishlasin
-    if not message.reply_to_message or not message.reply_to_message.voice:
-        await message.reply("❗ Iltimos, ovozli xabarga javoban /find buyrug'ini yozing.")
+async def find_music_from_media_reply(message: types.Message):
+    # Check if replying to a message with supported media
+    if not message.reply_to_message:
+        await message.reply("❗ Iltimos, ovozli xabar, video yoki audio faylga javoban /find buyrug'ini yozing.")
+        return
+    
+    reply_msg = message.reply_to_message
+    file_type = get_file_type_from_message(reply_msg)
+    
+    if not file_type:
+        await message.reply("❗ Iltimos, ovozli xabar, video yoki audio faylga javoban /find buyrug'ini yozing.")
+        return
+    
+    file_obj = get_file_from_message(reply_msg)
+    if not file_obj:
+        await message.reply("❌ Fayl topilmadi.")
+        return
+    
+    # Check file size (Telegram limit and reasonable processing limit)
+    max_size = 50 * 1024 * 1024  # 50MB
+    if hasattr(file_obj, 'file_size') and file_obj.file_size and file_obj.file_size > max_size:
+        await message.reply("❌ Fayl hajmi juda katta. Maksimal 50MB fayllar qabul qilinadi.")
         return
 
-    voice = message.reply_to_message.voice
-    file = await bot.get_file(voice.file_id)
+    await message.reply("🔍 Musiqa aniqlanmoqda...")
+    
+    file = await bot.get_file(file_obj.file_id)
     downloaded = await bot.download_file(file.file_path)
 
-    temp_file = f"temp_{message.from_user.id}.ogg"
-    with open(temp_file, "wb") as f:
-        f.write(downloaded.read())
-
-    await message.reply("🔍 Musiqa aniqlanmoqda...")
-
+    # Create temporary files
+    file_extension = get_file_extension_for_type(file_type)
+    temp_input_file = f"temp_input_{message.from_user.id}.{file_extension}"
+    temp_audio_file = f"temp_audio_{message.from_user.id}.wav"
+    
     try:
+        # Save the downloaded file
+        with open(temp_input_file, "wb") as f:
+            f.write(downloaded.read())
+
+
+        # Extract audio for Shazam processing
+        try:
+            extracted_audio_path = extract_audio_for_shazam(
+                temp_input_file, 
+                temp_audio_file, 
+                file_type=file_type,
+                duration_limit=30  # Limit to 30 seconds for better processing
+            )
+        except Exception as e:
+            logging.error(f"Audio extraction failed: {e}")
+            await message.reply("❌ Audio ajratishda xatolik yuz berdi.")
+            return
+
         shazam = Shazam()
-        result = await shazam.recognize(temp_file)
+        result = await shazam.recognize(extracted_audio_path)
 
         if not result or 'track' not in result:
-            await message.reply("❌ Musiqa aniqlanmadi. Iltimos, boshqa ovozli xabar yuboring.")
+            await message.reply("❌ Musiqa aniqlanmadi. Iltimos, boshqa fayl yuboring.")
             return
 
         track = result['track']
@@ -123,8 +165,12 @@ async def find_music_from_voice_reply(message: types.Message):
         logging.exception(e)
         await message.reply("❌ Musiqa aniqlanmadi yoki yuklab olishda xatolik yuz berdi.")
     finally:
-        if os.path.exists(temp_file):
-            os.remove(temp_file)
+        # Clean up temporary files
+        for temp_file in [temp_input_file, temp_audio_file]:
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+        
+        # Clean up any downloaded audio files
         for ext in ["mp3", "m4a", "webm"]:
             path = f"{message.from_user.id}_audio.{ext}"
             if os.path.exists(path):
