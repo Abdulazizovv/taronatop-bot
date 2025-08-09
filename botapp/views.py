@@ -20,7 +20,7 @@ def statistics_dashboard(request):
     # Basic statistics
     total_users = BotUser.objects.count()
     active_users = BotUser.objects.filter(is_active=True).count()
-    blocked_users = BotUser.objects.filter(is_blocked=True).count()
+    blocked_users = BotUser.objects.filter(is_active=False).count()
     
     total_chats = BotChat.objects.count()
     active_chats = BotChat.objects.filter(is_active=True).count()
@@ -146,7 +146,7 @@ def user_analytics(request):
     # User activity by status
     status_stats = {
         'active': BotUser.objects.filter(is_active=True).count(),
-        'blocked': BotUser.objects.filter(is_blocked=True).count(),
+        'blocked': BotUser.objects.filter(is_active=False).count(),
         'admin': BotUser.objects.filter(is_admin=True).count(),
     }
     
