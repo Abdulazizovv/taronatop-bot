@@ -84,6 +84,20 @@ class DB:
         except BotUser.DoesNotExist:
             return None
     
+    # Update user active status (when user blocks/unblocks bot)
+    @staticmethod
+    @sync_to_async
+    def update_user_active_status(user_id: int, is_active: bool):
+        try:
+            user = BotUser.objects.get(user_id=user_id)
+            user.is_active = is_active
+            user.save()
+            logging.info(f"Updated user {user_id} is_active to {is_active}")
+            return True
+        except BotUser.DoesNotExist:
+            logging.warning(f"User {user_id} not found in database")
+            return False
+    
     # Adding new chat
     @staticmethod
     @sync_to_async
@@ -139,6 +153,20 @@ class DB:
             logging.info(f"Deactivated chat: {chat.title}")
             return True
         except BotChat.DoesNotExist:
+            return False
+    
+    # Update chat active status (for user member changes)
+    @staticmethod
+    @sync_to_async
+    def update_chat_active_status(chat_id: int, is_active: bool):
+        try:
+            chat = BotChat.objects.get(chat_id=chat_id)
+            chat.is_active = is_active
+            chat.save()
+            logging.info(f"Updated chat {chat.title} is_active to {is_active}")
+            return True
+        except BotChat.DoesNotExist:
+            logging.warning(f"Chat {chat_id} not found in database")
             return False
         
     # Get all required chats
