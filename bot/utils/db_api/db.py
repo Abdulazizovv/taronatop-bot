@@ -621,7 +621,7 @@ class DB:
     @staticmethod
     @sync_to_async
     def get_blocked_users_count():
-        return BotUser.objects.filter(is_blocked=True).count()
+        return BotUser.objects.filter(is_active=False).count()
     
     # Get total chats count
     @staticmethod
