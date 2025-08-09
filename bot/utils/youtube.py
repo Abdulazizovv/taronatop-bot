@@ -79,6 +79,148 @@ class YouTubeSearch:
                 continue
         return formatted
 
+
+# === YouTube Trending Music ===
+class YouTubeTrending:
+    def __init__(self, max_results: int = 20, region_code: str = "US"):
+        """
+        Get trending music videos from YouTube.
+        
+        Args:
+            max_results: Maximum number of results to return (default: 20)
+            region_code: Country code for trending videos (default: "US" - valid YouTube region)
+                        Valid codes: US, GB, RU, IN, BR, etc. (ISO 3166-1 alpha-2)
+                        Note: UZ (Uzbekistan) is not supported by YouTube trending API
+        """
+        self.max_results = min(max_results, 50)
+        # Map region codes - use nearby valid regions for unsupported ones
+        self.region_code = self._get_valid_region_code(region_code)
+        self.youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY, cache_discovery=False)
+        self.results = self._get_trending_music()
+    
+    def _get_valid_region_code(self, region_code: str) -> str:
+        """
+        Map region codes to valid YouTube API region codes.
+        YouTube doesn't support all countries for trending.
+        """
+        # Map of unsupported regions to nearby supported ones
+        region_mapping = {
+            "UZ": "RU",  # Uzbekistan -> Russia (nearby, similar language area)
+            "KZ": "RU",  # Kazakhstan -> Russia
+            "KG": "RU",  # Kyrgyzstan -> Russia
+            "TJ": "RU",  # Tajikistan -> Russia
+            "TM": "RU",  # Turkmenistan -> Russia
+        }
+        
+        return region_mapping.get(region_code.upper(), region_code)
+
+    def _get_trending_music(self) -> List[Dict]:
+        """Get trending music videos using YouTube API."""
+        try:
+            # Get trending videos in Music category (category ID: 10)
+            response = self.youtube.videos().list(
+                part="snippet,statistics",
+                chart="mostPopular",
+                regionCode=self.region_code,
+                videoCategoryId="10",  # Music category
+                maxResults=self.max_results
+            ).execute()
+            
+            return response.get("items", [])
+        except Exception as e:
+            logging.error(f"Failed to get trending music: {str(e)}")
+            # Fallback: search for popular music terms
+            return self._fallback_music_search()
+
+    def _fallback_music_search(self) -> List[Dict]:
+        """Fallback method using search for popular music."""
+        try:
+            popular_music_queries = [
+                "trending music 2024",
+                "popular songs",
+                "top hits",
+                "viral music",
+                "new music"
+            ]
+            
+            all_results = []
+            for query in popular_music_queries:
+                try:
+                    response = self.youtube.search().list(
+                        q=query,
+                        part="snippet",
+                        maxResults=10,
+                        type="video",
+                        safeSearch="strict",
+                        order="relevance"
+                    ).execute()
+                    
+                    all_results.extend(response.get("items", []))
+                    if len(all_results) >= self.max_results:
+                        break
+                except Exception as e:
+                    logging.warning(f"Failed search for '{query}': {str(e)}")
+                    continue
+            
+            return all_results[:self.max_results]
+        except Exception as e:
+            logging.error(f"Fallback music search failed: {str(e)}")
+            return []
+
+    def to_dict(self) -> List[Dict]:
+        """Convert results to formatted dictionary list."""
+        formatted = []
+        for item in self.results:
+            try:
+                # Handle both trending API response and search API response
+                if "id" in item and isinstance(item["id"], dict):
+                    # Search API response format
+                    video_id = item["id"]["videoId"]
+                else:
+                    # Trending API response format
+                    video_id = item["id"]
+                
+                snippet = item["snippet"]
+                
+                # Get view count if available
+                view_count = ""
+                if "statistics" in item and "viewCount" in item["statistics"]:
+                    views = int(item["statistics"]["viewCount"])
+                    if views >= 1000000:
+                        view_count = f" • {views // 1000000}M views"
+                    elif views >= 1000:
+                        view_count = f" • {views // 1000}K views"
+                
+                formatted.append({
+                    "title": snippet.get("title", "No title"),
+                    "video_id": video_id,
+                    "url": f"https://www.youtube.com/watch?v={video_id}",
+                    "thumbnail_url": snippet["thumbnails"]["high"]["url"],
+                    "channel_title": snippet.get("channelTitle", "Unknown"),
+                    "view_count": view_count
+                })
+            except Exception as e:
+                logging.warning(f"Failed to process trending item: {str(e)}")
+                continue
+        
+        return formatted
+
+
+def get_trending_music(max_results: int = 20, region_code: str = "RU") -> List[Dict]:
+    """
+    Convenience function to get trending music.
+    
+    Args:
+        max_results: Maximum number of results
+        region_code: Country code for regional trending (default: "RU" - valid for Central Asia)
+                    Note: UZ is not supported by YouTube, so RU is used as regional proxy
+        
+    Returns:
+        List of formatted music video dictionaries
+    """
+    trending = YouTubeTrending(max_results, region_code)
+    return trending.to_dict()
+
 # === YouTube Info ===
 def get_video_info(video_url: str):
     video_id = extract_video_id(video_url)

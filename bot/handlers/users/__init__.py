@@ -6,4 +6,5 @@ from . import tiktok
 from . import select_youtube_format
 from . import help
 from . import start
+from . import top
 from . import echo
