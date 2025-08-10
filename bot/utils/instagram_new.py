@@ -53,11 +53,20 @@ class InstagramDownloader:
         """Setup aiohttp session with proper headers"""
         timeout = aiohttp.ClientTimeout(total=30)
         
+        # Check if brotli is available
+        try:
+            import brotli
+            accept_encoding = 'gzip, deflate, br'
+            logging.info("Brotli compression available")
+        except ImportError:
+            accept_encoding = 'gzip, deflate'
+            logging.warning("Brotli not available - using gzip/deflate only")
+        
         headers = {
             'User-Agent': random.choice(self.user_agents),
             'Accept': '*/*',
             'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Encoding': accept_encoding,
             'DNT': '1',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
@@ -73,34 +82,66 @@ class InstagramDownloader:
         )
     
     async def _load_cookies(self) -> Optional[dict]:
-        """Load Instagram cookies from file"""
+        """Load Instagram cookies from file with multiple format support"""
         cookies_files = [
             "cookies.txt",
             os.path.join(os.path.dirname(__file__), "..", "..", "cookies.txt"),
-            "/usr/src/app/cookies.txt"
+            "/usr/src/app/cookies.txt",  # Docker container path
+            "/app/cookies.txt",  # Alternative Docker path
+            "/home/abdulazizov/myProjects/paid/taronatop_bot/cookies.txt",  # Full server path
+            os.path.expanduser("~/cookies.txt")  # User home directory
         ]
         
         for cookies_file in cookies_files:
             if os.path.exists(cookies_file):
                 try:
                     cookies = {}
-                    with open(cookies_file, 'r') as f:
-                        for line in f:
-                            if line.startswith('#') or not line.strip():
+                    logging.info(f"Attempting to load cookies from: {cookies_file}")
+                    
+                    with open(cookies_file, 'r', encoding='utf-8') as f:
+                        content = f.read().strip()
+                        
+                        # Handle different cookie formats
+                        for line in content.split('\n'):
+                            line = line.strip()
+                            if not line or line.startswith('#'):
                                 continue
-                            parts = line.strip().split('\t')
-                            if len(parts) >= 7 and 'instagram.com' in parts[0]:
-                                cookies[parts[5]] = parts[6]
+                            
+                            # Netscape format (tab-separated)
+                            if '\t' in line:
+                                parts = line.split('\t')
+                                if len(parts) >= 7 and 'instagram.com' in parts[0]:
+                                    cookies[parts[5]] = parts[6]
+                            
+                            # JSON format support
+                            elif line.startswith('{') and line.endswith('}'):
+                                try:
+                                    import json
+                                    cookie_data = json.loads(line)
+                                    if isinstance(cookie_data, dict):
+                                        cookies.update(cookie_data)
+                                except:
+                                    continue
                     
                     if cookies:
-                        logging.info(f"Loaded Instagram cookies from {cookies_file}")
+                        logging.info(f"Successfully loaded {len(cookies)} Instagram cookies from {cookies_file}")
                         self.cookies_loaded = True
+                        
+                        # Validate essential cookies
+                        essential_cookies = ['sessionid', 'csrftoken']
+                        found_essential = [cookie for cookie in essential_cookies if cookie in cookies]
+                        if found_essential:
+                            logging.info(f"Found essential cookies: {found_essential}")
+                        else:
+                            logging.warning("No essential Instagram cookies found (sessionid, csrftoken)")
+                        
                         return cookies
                         
                 except Exception as e:
-                    logging.warning(f"Failed to load cookies from {cookies_file}: {e}")
+                    logging.error(f"Failed to load cookies from {cookies_file}: {e}")
+                    continue
         
-        logging.warning("No Instagram cookies found - some content may be restricted")
+        logging.warning("No Instagram cookies found - trying without authentication")
         return None
     
     async def download_media(self, url: str) -> Optional[Tuple[str, str, str]]:
@@ -168,7 +209,7 @@ class InstagramDownloader:
             return None
     
     async def _download_with_enhanced_ytdlp(self, url: str) -> Optional[Tuple[str, str, str]]:
-        """Method 2: Enhanced yt-dlp with optimized settings"""
+        """Method 2: Enhanced yt-dlp with maximum server compatibility"""
         try:
             ydl_opts = {
                 "format": "best[height<=1080]/best",
@@ -176,39 +217,58 @@ class InstagramDownloader:
                 "quiet": True,
                 "no_warnings": True,
                 "no_check_certificate": True,
+                "prefer_insecure": True,  # For server environments
                 
-                # Anti-detection measures
-                "extractor_retries": 3,
-                "fragment_retries": 3,
-                "retries": 2,
-                "sleep_interval": 2,
-                "sleep_interval_requests": 1,
+                # Enhanced anti-detection for servers
+                "extractor_retries": 5,
+                "fragment_retries": 5,
+                "retries": 3,
+                "sleep_interval": random.uniform(2, 4),
+                "sleep_interval_requests": random.uniform(1, 3),
+                "socket_timeout": 30,
                 
-                # Instagram-specific headers
+                # Server-compatible headers  
                 "http_headers": {
                     'User-Agent': random.choice(self.user_agents),
                     'X-IG-App-ID': '936619743392459',
                     'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': '*/*',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                     'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate',  # No brotli for server compatibility
                     'Referer': 'https://www.instagram.com/',
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache',
+                    'DNT': '1',
+                    'Connection': 'keep-alive'
                 },
                 
-                # Instagram extractor args
+                # Instagram extractor args with better compatibility
                 "extractor_args": {
                     "instagram": {
                         "skip_auth_warning": True,
                         "api_version": "v1",
+                        "bypass_age_gate": True,
+                        "bypass_geo_restriction": True
                     }
                 }
             }
             
-            # Add cookies if available
-            cookies_files = ["cookies.txt", "/usr/src/app/cookies.txt"]
+            # Enhanced cookie detection for servers
+            cookies_files = [
+                "cookies.txt", 
+                "/usr/src/app/cookies.txt",
+                "/app/cookies.txt",
+                "/home/abdulazizov/myProjects/paid/taronatop_bot/cookies.txt",
+                os.path.join(os.path.dirname(__file__), "..", "..", "cookies.txt")
+            ]
+            
             for cookies_file in cookies_files:
                 if os.path.exists(cookies_file):
                     ydl_opts["cookiefile"] = cookies_file
+                    logging.info(f"Using cookies file for yt-dlp: {cookies_file}")
                     break
+            else:
+                logging.warning("No cookies file found for yt-dlp - may affect download success")
             
             with YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
@@ -221,6 +281,8 @@ class InstagramDownloader:
                     file_path = os.path.join(TEMP_DIR, f"{file_id}.{ext}")
                     
                     if os.path.exists(file_path):
+                        file_size = os.path.getsize(file_path)
+                        logging.info(f"Enhanced yt-dlp downloaded: {file_path} ({file_size} bytes)")
                         return file_path, title, file_id
             
             return None
@@ -271,7 +333,7 @@ class InstagramDownloader:
             return None
     
     async def _download_with_basic_ytdlp(self, url: str) -> Optional[Tuple[str, str, str]]:
-        """Method 4: Basic yt-dlp as last resort"""
+        """Method 4: Basic yt-dlp with server compatibility"""
         try:
             ydl_opts = {
                 "format": "best",
@@ -279,7 +341,30 @@ class InstagramDownloader:
                 "quiet": True,
                 "no_warnings": True,
                 "ignoreerrors": True,
+                "no_check_certificate": True,
+                "prefer_insecure": True,
+                "socket_timeout": 30,
+                
+                # Basic server-compatible headers
+                "http_headers": {
+                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+                    'Accept-Encoding': 'gzip, deflate'  # No brotli
+                }
             }
+            
+            # Add cookies for basic method too
+            cookies_files = [
+                "cookies.txt", 
+                "/usr/src/app/cookies.txt",
+                "/app/cookies.txt",
+                "/home/abdulazizov/myProjects/paid/taronatop_bot/cookies.txt"
+            ]
+            
+            for cookies_file in cookies_files:
+                if os.path.exists(cookies_file):
+                    ydl_opts["cookiefile"] = cookies_file
+                    logging.info(f"Basic yt-dlp using cookies: {cookies_file}")
+                    break
             
             with YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
