@@ -17,13 +17,24 @@ MAX_DURATION = 3600  # 1 hour
 PRIVATE_CHANNEL_ID = "-1002616385121"
 
 # === Helpers ===
-def extract_video_id(url: str) -> str | None:
+def extract_video_id(url: str) -> Optional[str]:
     """
-    YouTube URL dan video ID ajratib olish.
+    Extract the YouTube video ID from a YouTube URL (supports youtu.be, youtube.com/watch, youtube.com/shorts, etc).
     """
-    regex = (
-        r"(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/shorts/)([^\s&]+)"
-    )
+    # Try to parse using urlparse for robustness
+    parsed = urlparse(url)
+    if parsed.hostname in ("youtu.be",):
+        return parsed.path.lstrip("/")
+    if parsed.hostname in ("www.youtube.com", "youtube.com", "m.youtube.com"):
+        if parsed.path == "/watch":
+            qs = parse_qs(parsed.query)
+            return qs.get("v", [None])[0]
+        elif parsed.path.startswith("/embed/"):
+            return parsed.path.split("/embed/")[1].split("/")[0]
+        elif parsed.path.startswith("/shorts/"):
+            return parsed.path.split("/shorts/")[1].split("/")[0]
+    # Fallback to regex for any other format
+    regex = r"(?:youtube\.com/(?:watch\?v=|embed/|shorts/)|youtu\.be/)([A-Za-z0-9_-]{11})"
     match = re.search(regex, url)
     return match.group(1) if match else None
 

@@ -4,11 +4,11 @@ from aiogram.dispatcher import FSMContext
 from typing import Dict
 
 from bot.loader import dp, db, bot
-from bot.utils.youtube import (
-    get_video_info,
-    download_music,
-    download_video,
-    safely_remove
+from bot.utils.youtube_enhanced import (
+    get_youtube_video_info,
+    download_youtube_music,
+    download_youtube_video,
+    safely_remove_file
 )
 from bot.keyboards.inline.select_format import format_callback
 from bot.data.config import PRIVATE_CHANNEL_ID
@@ -32,7 +32,7 @@ async def handle_format_selection(callback_query: types.CallbackQuery, callback_
         )
         # Fetch video info
         video_url = f"https://youtube.com/watch?v={video_id}"
-        video_info = get_video_info(video_url)
+        video_info = await get_youtube_video_info(video_url)
 
         if not video_info:
             await callback_query.answer("❌ Video topilmadi yoki noto'g'ri URL.", show_alert=True)
@@ -55,10 +55,12 @@ async def handle_format_selection(callback_query: types.CallbackQuery, callback_
                 return
 
             # 2. Download
-            audio_data, filepath, filename = await download_music(video_url)
-            if not audio_data:
+            result = await download_youtube_music(video_url)
+            if not result:
                 await callback_query.message.answer("❌ Audio yuklab olishda xatolik yuz berdi.")
                 return
+            
+            audio_data, filepath, filename = result
 
             # 3. Upload to Telegram
             msg = await bot.send_audio(
@@ -96,10 +98,12 @@ async def handle_format_selection(callback_query: types.CallbackQuery, callback_
                 return
 
             # 2. Download
-            video_data, filepath, filename = await download_video(video_url)
-            if not video_data:
+            result = await download_youtube_video(video_url)
+            if not result:
                 await callback_query.message.answer("Videoni yuklab olib bo'lmadi!")
                 return
+            
+            video_data, filepath, filename = result
 
             # 3. Upload to Telegram
             msg = await bot.send_video(
@@ -136,7 +140,7 @@ async def handle_format_selection(callback_query: types.CallbackQuery, callback_
         # Always try to delete temp file if exists
         try:
             if 'filepath' in locals():
-                await safely_remove(filepath)
+                await safely_remove_file(filepath)
         except Exception as e:
             logging.warning(f"Temp faylni o‘chirishda xatolik: {e}")
 

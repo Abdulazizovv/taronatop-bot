@@ -2,11 +2,16 @@ from aiogram import types
 from aiogram.dispatcher import FSMContext
 from bot.loader import dp, db, bot
 from bot.utils.instagram import (
-    download_instagram_media,
-    convert_instagram_video_to_audio,
+    # download_instagram_media,
+    # convert_instagram_video_to_audio,
     find_music_name,
     download_youtube_audio_by_title
 )
+from bot.utils.instagram_new import (
+    download_instagram_media,
+    convert_instagram_video_to_audio
+)
+
 from bot.keyboards.inline.instagram import instagram_keyboard, instagram_callback
 from bot.data.config import PRIVATE_CHANNEL_ID
 import logging

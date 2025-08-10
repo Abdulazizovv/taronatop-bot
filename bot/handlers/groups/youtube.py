@@ -1,7 +1,7 @@
 from aiogram import types
 from bot.loader import dp
 from bot.filters.is_group import IsGroup
-from bot.utils.youtube import get_video_info
+from bot.utils.youtube_enhanced import get_youtube_video_info
 from bot.keyboards.inline.select_format import create_format_selection_keyboard as create_format_keyboard
 import logging
 
@@ -18,7 +18,7 @@ async def handle_youtube_in_group(message: types.Message):
     try:
         search_msg = await message.reply("🔍 Video tekshirilmoqda...")
 
-        video_info = get_video_info(text)
+        video_info = await get_youtube_video_info(text)
 
         if not video_info:
             await search_msg.edit_text("❌ Video topilmadi yoki noto'g'ri havola.")
