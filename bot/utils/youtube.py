@@ -257,6 +257,51 @@ def get_video_info(video_url: str):
     }
 
 # === Downloaders ===
+# === Enhanced YoutubeDL Configuration ===
+def get_enhanced_ydl_opts(base_opts: dict = None) -> dict:
+    """Get enhanced yt-dlp options with anti-bot measures and cookies support"""
+    
+    enhanced_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+        "extract_flat": False,
+        
+        # Anti-bot measures
+        "extractor_retries": 3,
+        "fragment_retries": 3,
+        "retries": 3,
+        "sleep_interval_requests": 1,
+        "sleep_interval_subtitles": 1,
+        "sleep_interval": 1,
+        
+        # Headers to appear more like a browser
+        "http_headers": {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+        }
+    }
+    
+    # Add cookies if available
+    cookies_file = os.path.join(os.path.dirname(__file__), "..", "..", "cookies.txt")
+    if os.path.exists(cookies_file):
+        enhanced_opts["cookiefile"] = cookies_file
+        logging.info("Using cookies.txt for YouTube authentication")
+    elif os.path.exists("cookies.txt"):
+        enhanced_opts["cookiefile"] = "cookies.txt"
+        logging.info("Using cookies.txt for YouTube authentication")
+    
+    # Merge with base options
+    if base_opts:
+        enhanced_opts.update(base_opts)
+    
+    return enhanced_opts
+
 async def download_music(youtube_watch_url: str):
     video_id = extract_video_id(youtube_watch_url)
     filepath = os.path.join(TEMP_DIR, f"{video_id}.mp3")
@@ -268,18 +313,20 @@ async def download_music(youtube_watch_url: str):
         with open(filepath, 'rb') as f:
             return BytesIO(f.read()), filepath, f"{audio_info['title']}.mp3"
 
-    ydl_opts = {
-        "format": "bestaudio",
+    base_opts = {
+        "format": "bestaudio/best",  # More flexible format selection
         "outtmpl": os.path.join(TEMP_DIR, "%(id)s.%(ext)s"),
         "postprocessors": [{
             "key": "FFmpegExtractAudio",
             "preferredcodec": "mp3",
             "preferredquality": "192"
         }],
-        "quiet": True,
-        "no_warnings": True,
-        "noplaylist": True
+        # Additional fallback options
+        "ignoreerrors": False,
+        "no_check_certificate": True,
     }
+    
+    ydl_opts = get_enhanced_ydl_opts(base_opts)
 
     try:
         with YoutubeDL(ydl_opts) as ydl:
@@ -288,8 +335,17 @@ async def download_music(youtube_watch_url: str):
         with open(filename, 'rb') as f:
             return BytesIO(f.read()), filename, clean_filename(info.get("title", "Unknown")) + ".mp3"
     except Exception as e:
-        logging.error(f"Failed to download music: {str(e)}")
-        raise RuntimeError(f"Music download failed: {str(e)}")
+        error_msg = str(e)
+        logging.error(f"Failed to download music: {error_msg}")
+        
+        # Specific handling for bot detection
+        if "Sign in to confirm" in error_msg or "bot" in error_msg.lower():
+            raise RuntimeError(
+                "YouTube bot detection triggered. Please add cookies.txt file or try again later. "
+                "See setup_youtube_cookies.md for instructions."
+            )
+        
+        raise RuntimeError(f"Music download failed: {error_msg}")
 
 async def download_video(youtube_watch_url: str):
     video_id = extract_video_id(youtube_watch_url)
@@ -301,14 +357,15 @@ async def download_video(youtube_watch_url: str):
         with open(filepath, 'rb') as f:
             return BytesIO(f.read()), filepath, f"{video_id}.mp4"
 
-    ydl_opts = {
-        "format": "best[ext=mp4][height<=480]",
+    base_opts = {
+        "format": "best[ext=mp4]/best",  # More flexible format selection
         "outtmpl": os.path.join(TEMP_DIR, "%(id)s.%(ext)s"),
-        "quiet": True,
-        "no_warnings": True,
-        "noplaylist": True,
-        "merge_output_format": "mp4"
+        "merge_output_format": "mp4",
+        # Additional options for better compatibility
+        "no_check_certificate": True,
     }
+    
+    ydl_opts = get_enhanced_ydl_opts(base_opts)
 
     try:
         with YoutubeDL(ydl_opts) as ydl:
@@ -317,7 +374,13 @@ async def download_video(youtube_watch_url: str):
         with open(filename, 'rb') as f:
             return BytesIO(f.read()), filename, clean_filename(info.get("title", "Unknown")) + ".mp4"
     except Exception as e:
-        logging.error(f"Failed to download video: {str(e)}")
+        error_msg = str(e)
+        logging.error(f"Failed to download video: {error_msg}")
+        
+        # Specific handling for bot detection
+        if "Sign in to confirm" in error_msg or "bot" in error_msg.lower():
+            logging.warning("YouTube bot detection triggered for video download")
+        
         return None, None, None
 
 # === CLI Debug Tool ===
