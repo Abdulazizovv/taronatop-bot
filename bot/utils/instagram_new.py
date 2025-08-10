@@ -13,6 +13,7 @@ from yt_dlp.utils import sanitize_filename
 from dotenv import load_dotenv
 import random
 import hashlib
+from shazamio import Shazam
 
 # Load environment variables
 load_dotenv()
@@ -33,6 +34,10 @@ class InstagramDownloader:
         self.session = None
         self.cookies_loaded = False
         self.rate_limit_delay = 1
+        
+        # Ensure temp directory exists
+        os.makedirs(TEMP_DIR, exist_ok=True)
+        logging.info(f"Instagram downloader initialized, temp dir: {TEMP_DIR}")
         
         # User agents for different methods
         self.user_agents = [
@@ -585,28 +590,145 @@ async def get_instagram_media_info(insta_url: str) -> Optional[dict]:
 
 # === Legacy compatibility functions ===
 async def convert_instagram_video_to_audio(insta_url: str) -> Optional[str]:
-    """Convert Instagram video to audio (legacy compatibility)"""
-    result = await download_instagram_media(insta_url)
-    if result and result[0]:
-        # Convert video to audio if needed
-        video_path = result[0]
-        if video_path.endswith('.mp4'):
-            audio_path = video_path.replace('.mp4', '.mp3')
-            
-            # Use FFmpeg to convert
-            import subprocess
-            try:
-                subprocess.run([
-                    "ffmpeg", "-i", video_path,
-                    "-q:a", "2", "-y", audio_path
-                ], check=True, capture_output=True)
-                
-                if os.path.exists(audio_path):
-                    return audio_path
-            except Exception as e:
-                logging.error(f"Audio conversion failed: {e}")
+    """
+    Convert Instagram video to audio (enhanced legacy compatibility)
+    Returns: audio file path or None if failed
+    """
+    try:
+        logging.info(f"Converting Instagram video to audio: {insta_url}")
         
-        return video_path
+        # Step 1: Download the media using enhanced downloader
+        result = await download_instagram_media(insta_url)
+        if not result or not result[0]:
+            logging.error("Failed to download Instagram media")
+            return None
+        
+        video_path, title, media_id = result
+        
+        # Step 2: Check if file exists
+        if not os.path.exists(video_path):
+            logging.error(f"Downloaded file not found: {video_path}")
+            return None
+        
+        # Step 3: Determine output audio path
+        base_path = os.path.splitext(video_path)[0]
+        audio_path = f"{base_path}.mp3"
+        
+        # Ensure audio path is in temp directory
+        if not audio_path.startswith(TEMP_DIR):
+            # If video is not in temp dir, create audio in temp dir
+            filename = os.path.basename(base_path)
+            audio_path = os.path.join(TEMP_DIR, f"{filename}.mp3")
+        
+        # Step 4: Check if already converted
+        if os.path.exists(audio_path):
+            logging.info(f"Audio file already exists: {audio_path}")
+            return audio_path
+        
+        # Step 5: Convert video to audio using FFmpeg
+        logging.info(f"Converting {video_path} to {audio_path}")
+        
+        import subprocess
+        import shutil
+        
+        # Check if ffmpeg is available
+        if not shutil.which("ffmpeg"):
+            logging.error("FFmpeg not found - cannot convert video to audio")
+            return None
+        
+        try:
+            # FFmpeg command with optimized settings
+            cmd = [
+                "ffmpeg",
+                "-i", video_path,          # Input video
+                "-vn",                     # No video
+                "-acodec", "libmp3lame",   # MP3 codec
+                "-ab", "192k",             # Audio bitrate
+                "-ar", "44100",            # Sample rate
+                "-y",                      # Overwrite output
+                audio_path                 # Output audio
+            ]
+            
+            result = subprocess.run(
+                cmd,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=30  # 30 second timeout
+            )
+            
+            # Check if conversion was successful
+            if os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
+                logging.info(f"Successfully converted to audio: {audio_path}")
+                
+                # Clean up video file if audio conversion successful
+                try:
+                    os.remove(video_path)
+                    logging.info(f"Cleaned up video file: {video_path}")
+                except:
+                    pass
+                
+                return audio_path
+            else:
+                logging.error("Audio conversion failed - output file not created or empty")
+                return None
+                
+        except subprocess.TimeoutExpired:
+            logging.error("FFmpeg conversion timed out")
+            return None
+        except subprocess.CalledProcessError as e:
+            logging.error(f"FFmpeg conversion failed: {e.stderr}")
+            return None
+        except Exception as e:
+            logging.error(f"Unexpected error during conversion: {e}")
+            return None
+        
+    except Exception as e:
+        logging.error(f"Instagram video to audio conversion failed: {e}")
+        return None
+
+# === Music Recognition ===
+async def find_music_name(audio_file: str) -> Optional[str]:
+    """
+    Enhanced music recognition using Shazam
+    
+    Args:
+        audio_file (str): Path to audio file
+        
+    Returns:
+        str: Music name (title + artist) or None if not found
+    """
+    try:
+        if not os.path.exists(audio_file):
+            logging.error(f"Audio file not found: {audio_file}")
+            return None
+        
+        # Check file size
+        file_size = os.path.getsize(audio_file)
+        if file_size == 0:
+            logging.error(f"Audio file is empty: {audio_file}")
+            return None
+        
+        logging.info(f"Recognizing music from: {audio_file} ({file_size} bytes)")
+        
+        shazam = Shazam()
+        result = await shazam.recognize(audio_file)
+        
+        if result and "track" in result:
+            track = result["track"]
+            title = track.get("title", "Unknown")
+            artist = track.get("subtitle", "Unknown Artist")
+            
+            music_name = f"{title} – {artist}"
+            logging.info(f"Music recognized: {music_name}")
+            return music_name
+        else:
+            logging.warning("No music track found by Shazam")
+            return None
+            
+    except Exception as e:
+        logging.error(f"Music recognition failed: {e}")
+        return None
     
     return None
 

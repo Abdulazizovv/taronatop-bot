@@ -1,15 +1,14 @@
 from aiogram import types
 from aiogram.dispatcher import FSMContext
 from bot.loader import dp, db, bot
-from bot.utils.instagram import (
-    # download_instagram_media,
-    # convert_instagram_video_to_audio,
-    find_music_name,
-    download_youtube_audio_by_title
-)
 from bot.utils.instagram_new import (
     download_instagram_media,
-    convert_instagram_video_to_audio
+    convert_instagram_video_to_audio,  # Enhanced function
+    find_music_name  # Enhanced function
+)
+from bot.utils.youtube_enhanced import (
+    search_youtube,
+    download_youtube_music
 )
 
 from bot.keyboards.inline.instagram import instagram_keyboard, instagram_callback
@@ -113,27 +112,38 @@ async def download_instagram_media_music(call: types.CallbackQuery, callback_dat
             await call.message.answer("❌ Videoda musiqa topilmadi.")
             return
 
-        audio_download = await download_youtube_audio_by_title(track_name)
-        if not audio_download:
-            await call.message.answer("❌ Musiqa topilmadi yoki yuklab olishda xatolik yuz berdi.")
+        # Search for the track on YouTube
+        search_results = await search_youtube(track_name, max_results=1)
+        if not search_results:
+            await call.message.answer("❌ Musiqa YouTube da topilmadi.")
             return
 
-        audio_path, file_name, audio_data = audio_download
-        audio_file = types.InputFile(audio_path)
+        # Get the first result
+        video_info = search_results[0]
+        youtube_url = video_info["url"]
+        
+        # Download audio from YouTube
+        audio_download = await download_youtube_music(youtube_url)
+        if not audio_download:
+            await call.message.answer("❌ Musiqa yuklab olishda xatolik yuz berdi.")
+            return
+
+        audio_data, audio_file_path, filename = audio_download
+        audio_file = types.InputFile(audio_data)
 
         sent_message = await bot.send_audio(
             chat_id=PRIVATE_CHANNEL_ID,
             audio=audio_file,
-            title=audio_data["title"],
-            caption=f"🎵 <b>Instagram Media Audio:</b> {audio_data['title']}\n",
+            title=video_info["title"],
+            caption=f"🎵 <b>Instagram Media Audio:</b> {video_info['title']}\n",
             parse_mode="HTML"
         )
 
         telegram_file_id = sent_message.audio.file_id
 
         youtube_audio = await db.save_youtube_audio(
-            video_id=audio_data["id"],
-            title=audio_data["title"],
+            video_id=video_info["video_id"],
+            title=video_info["title"],
             telegram_file_id=telegram_file_id,
             user_id=call.from_user.id
         )
@@ -145,10 +155,19 @@ async def download_instagram_media_music(call: types.CallbackQuery, callback_dat
 
         await call.message.answer_audio(
             audio=telegram_file_id,
-            title=audio_data["title"],
-            caption=f"🎵 <b>Instagram Media Audio:</b> {audio_data['title']}\n",
+            title=video_info["title"],
+            caption=f"🎵 <b>Instagram Media Audio:</b> {video_info['title']}\n",
             parse_mode="HTML"
         )
+        
+        # Clean up temporary files
+        try:
+            if audio_file_path and os.path.exists(audio_file_path):
+                os.remove(audio_file_path)
+            if audio_path and os.path.exists(audio_path):
+                os.remove(audio_path)
+        except Exception as cleanup_error:
+            logging.warning(f"Cleanup error: {cleanup_error}")
 
     except Exception as e:
         logging.error(f"[Download Instagram Media Audio Error] {e}")
