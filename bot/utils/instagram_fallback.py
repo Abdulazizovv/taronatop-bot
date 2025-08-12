@@ -62,20 +62,21 @@ class FallbackInstagramDownloader:
         Instagram mediasini yuklab oladi (fallback methods)
         """
         try:
-            # Method 1: Try Instagram Web API
-            result = await self._try_web_api(instagram_url)
-            if result:
-                return result
-            
-            # Method 2: Try yt-dlp with basic options
+            # Method 1: Try yt-dlp with basic options (most reliable)
             result = await self._try_ytdlp_basic(instagram_url)
             if result:
                 return result
             
-            # Method 3: Try gallery-dl
-            result = await self._try_gallery_dl(instagram_url)
+            # Method 2: Try Instagram Web API
+            result = await self._try_web_api(instagram_url)
             if result:
                 return result
+            
+            # Method 3: Try gallery-dl (if available)
+            if self._is_gallery_dl_available():
+                result = await self._try_gallery_dl(instagram_url)
+                if result:
+                    return result
             
             logging.error("All fallback methods failed")
             return None
@@ -120,45 +121,92 @@ class FallbackInstagramDownloader:
     
     async def _try_ytdlp_basic(self, instagram_url: str) -> Optional[Tuple[str, str, str]]:
         """
-        yt-dlp basic options bilan sinab ko'radi
+        yt-dlp basic options bilan sinab ko'radi (enhanced)
         """
         try:
             shortcode = self._extract_shortcode(instagram_url)
             title = f"instagram_{shortcode or uuid4().hex[:8]}"
             output_path = os.path.join(TEMP_DIR, f"{title}.%(ext)s")
             
-            # Basic yt-dlp command
-            cmd = [
-                "yt-dlp",
-                "--no-warnings",
-                "--quiet",
-                "--format", "best",
-                "--output", output_path,
-                "--user-agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15",
-                instagram_url
+            # Multiple yt-dlp configurations to try
+            configs = [
+                # Config 1: Basic with cookies
+                [
+                    "yt-dlp",
+                    "--no-warnings", "--quiet",
+                    "--format", "best[height<=720]",
+                    "--output", output_path,
+                    "--user-agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15",
+                    "--extractor-args", "instagram:api_version=v1",
+                    instagram_url
+                ],
+                # Config 2: Basic without height limit
+                [
+                    "yt-dlp",
+                    "--no-warnings", "--quiet",
+                    "--format", "best",
+                    "--output", output_path,
+                    "--user-agent", "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36",
+                    instagram_url
+                ],
+                # Config 3: Simple format
+                [
+                    "yt-dlp",
+                    "--no-warnings", "--quiet",
+                    "--output", output_path,
+                    instagram_url
+                ]
             ]
             
-            # Run yt-dlp
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            
-            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30)
-            
-            if process.returncode == 0:
-                # Find downloaded file
-                for ext in ['mp4', 'webm', 'mov']:
-                    file_path = os.path.join(TEMP_DIR, f"{title}.{ext}")
-                    if os.path.exists(file_path):
-                        return file_path, title, shortcode or "unknown"
+            for i, cmd in enumerate(configs):
+                try:
+                    logging.info(f"Trying yt-dlp config {i+1}/3")
+                    
+                    # Run yt-dlp
+                    process = await asyncio.create_subprocess_exec(
+                        *cmd,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE
+                    )
+                    
+                    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30)
+                    
+                    if process.returncode == 0:
+                        # Find downloaded file
+                        for ext in ['mp4', 'webm', 'mov', 'avi']:
+                            file_path = os.path.join(TEMP_DIR, f"{title}.{ext}")
+                            if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+                                logging.info(f"yt-dlp config {i+1} success: {file_path}")
+                                return file_path, title, shortcode or "unknown"
+                    else:
+                        logging.warning(f"yt-dlp config {i+1} failed: {stderr.decode()}")
+                        
+                except asyncio.TimeoutError:
+                    logging.warning(f"yt-dlp config {i+1} timed out")
+                    continue
+                except Exception as e:
+                    logging.warning(f"yt-dlp config {i+1} error: {str(e)}")
+                    continue
             
             return None
             
         except Exception as e:
             logging.warning(f"yt-dlp basic method failed: {str(e)}")
             return None
+    
+    def _is_gallery_dl_available(self) -> bool:
+        """
+        Check if gallery-dl is available
+        """
+        try:
+            import subprocess
+            result = subprocess.run(['gallery-dl', '--version'], 
+                                  capture_output=True, text=True, timeout=5)
+            return result.returncode == 0
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return False
+        except Exception:
+            return False
     
     async def _try_gallery_dl(self, instagram_url: str) -> Optional[Tuple[str, str, str]]:
         """
