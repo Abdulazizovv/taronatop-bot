@@ -1,10 +1,21 @@
 from aiogram import types
 from aiogram.dispatcher import FSMContext
 from bot.loader import dp, db, bot
-from bot.utils.instagram_new import (
+# Primary method - working fallback
+from bot.utils.instagram_fallback import (
     download_instagram_media,
-    convert_instagram_video_to_audio,  # Enhanced function
-    find_music_name  # Enhanced function
+    convert_instagram_video_to_audio,
+    find_music_name,
+    get_instagram_media_info
+)
+# Secondary fallback methods
+from bot.utils.instagram_apify_simple import (
+    download_instagram_media as download_instagram_media_apify,
+    convert_instagram_video_to_audio as convert_instagram_video_to_audio_apify,
+)
+from bot.utils.instagram_new import (
+    download_instagram_media as download_instagram_media_fallback1,
+    convert_instagram_video_to_audio as convert_instagram_video_to_audio_fallback1,
 )
 from bot.utils.youtube_enhanced import (
     search_youtube,
@@ -21,7 +32,7 @@ import os
 async def handle_instagram_link(message: types.Message, state: FSMContext):
     search_query = message.text.strip()
     try:
-        search_msg = await message.reply("⏳")
+        search_msg = await message.reply("⏳ Apify Instagram Scraper ishlatilmoqda...")
 
         # Check if media info already exists in DB
         media_info = await db.get_instagram_media(search_query)
@@ -32,11 +43,22 @@ async def handle_instagram_link(message: types.Message, state: FSMContext):
                 parse_mode="HTML",
                 reply_markup=instagram_keyboard(media_id=media_info["media_id"])
             )
+            await search_msg.delete()
             return
 
-        # Otherwise, download it
+        # Try primary method first (working fallback)
         await bot.send_chat_action(message.chat.id, types.ChatActions.UPLOAD_VIDEO)
         result = await download_instagram_media(search_query)
+
+        # Try Apify as secondary
+        if not result:
+            await search_msg.edit_text("⏳ Apify orqali urinilmoqda...")
+            result = await download_instagram_media_apify(search_query)
+
+        # Final fallback to old method
+        if not result:
+            await search_msg.edit_text("⏳ Oxirgi fallback usuli...")
+            result = await download_instagram_media_fallback1(search_query)
 
         if not result:
             await search_msg.edit_text("❌ Media topilmadi yoki noto'g'ri havola.")
@@ -63,10 +85,12 @@ async def handle_instagram_link(message: types.Message, state: FSMContext):
 
         await message.answer_video(
             video=telegram_file_id,
-            caption=f"🎥 <b>Instagram Media:</b>\n\n{title}\n",
+            caption=f"🎥 <b>Instagram Media:</b>\n\n{title}\n✅ Muvaffaqiyatli yuklab olindi",
             parse_mode="HTML",
             reply_markup=instagram_keyboard(media_id=media_id)
         )
+
+        await search_msg.delete()
 
     except Exception as e:
         logging.error(f"[Instagram Link Error] {e}")
@@ -101,6 +125,15 @@ async def download_instagram_media_music(call: types.CallbackQuery, callback_dat
             return
 
         result = await convert_instagram_video_to_audio(media_info["video_url"])
+        
+        # Try Apify as secondary
+        if not result:
+            result = await convert_instagram_video_to_audio_apify(media_info["video_url"])
+        
+        # Final fallback
+        if not result:
+            result = await convert_instagram_video_to_audio_fallback1(media_info["video_url"])
+            
         if not result:
             await call.message.answer("❌ Video audiosini olishda xatolik yuz berdi.")
             return
