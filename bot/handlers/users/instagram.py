@@ -32,7 +32,7 @@ import os
 async def handle_instagram_link(message: types.Message, state: FSMContext):
     search_query = message.text.strip()
     try:
-        search_msg = await message.reply("⏳ Apify Instagram Scraper ishlatilmoqda...")
+        search_msg = await message.reply("⏳ Yuklanmoqda...")
 
         # Check if media info already exists in DB
         media_info = await db.get_instagram_media(search_query)
@@ -52,12 +52,12 @@ async def handle_instagram_link(message: types.Message, state: FSMContext):
 
         # Try Apify as secondary
         if not result:
-            await search_msg.edit_text("⏳ Apify orqali urinilmoqda...")
+            await search_msg.edit_text("⏳ Iltimos kuting...")
             result = await download_instagram_media_apify(search_query)
 
         # Final fallback to old method
         if not result:
-            await search_msg.edit_text("⏳ Oxirgi fallback usuli...")
+            await search_msg.edit_text("⏳ Oxirgi urinish...")
             result = await download_instagram_media_fallback1(search_query)
 
         if not result:
