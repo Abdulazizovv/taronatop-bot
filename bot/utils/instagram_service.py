@@ -260,7 +260,7 @@ async def _download_with_ytdlp(url: str) -> Dict:
         
     except Exception as e:
         logging.error(f"[IG Download] yt-dlp error: {e}")
-        return {'success': False, 'message': f'yt-dlp xatoligi: {str(e)}'}
+        return {'success': False, 'message': f'Yuklab olishda xatolik'}
 
 
 async def _validate_and_convert_video(video_path: str) -> Optional[str]:
