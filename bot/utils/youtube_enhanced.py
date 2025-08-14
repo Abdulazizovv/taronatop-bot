@@ -81,6 +81,53 @@ class YouTubeAPIManager:
         """Increment quota usage for a key"""
         self.key_quota_used[api_key] = self.key_quota_used.get(api_key, 0) + cost
 
+    async def search_videos(self, query: str, max_results: int = 20) -> List[Dict[str, Any]]:
+        """Search for videos using YouTube API with key rotation"""
+        from googleapiclient.discovery import build
+        from googleapiclient.errors import HttpError
+        
+        api_key = self.get_current_api_key()
+        
+        try:
+            youtube = build('youtube', 'v3', developerKey=api_key)
+            
+            search_response = youtube.search().list(
+                q=query,
+                part='id,snippet',
+                type='video',
+                maxResults=max_results,
+                order='relevance'
+            ).execute()
+            
+            self.increment_quota_usage(api_key, 100)  # Search costs 100 quota units
+            
+            videos = []
+            for search_result in search_response.get('items', []):
+                video_info = {
+                    'video_id': search_result['id']['videoId'],
+                    'title': search_result['snippet']['title'],
+                    'channel': search_result['snippet']['channelTitle'],
+                    'description': search_result['snippet']['description'],
+                    'thumbnail': search_result['snippet']['thumbnails'].get('default', {}).get('url'),
+                    'url': f"https://www.youtube.com/watch?v={search_result['id']['videoId']}"
+                }
+                videos.append(video_info)
+            
+            return videos
+            
+        except HttpError as e:
+            if e.resp.status == 403:  # Quota exceeded
+                self.mark_key_quota_exceeded(api_key)
+                if len(self.api_keys) > 1:
+                    # Try with next key
+                    return await self.search_videos(query, max_results)
+            
+            logging.error(f"YouTube API search error: {e}")
+            return []
+        except Exception as e:
+            logging.error(f"YouTube search error: {e}")
+            return []
+
 # Global API manager instance
 api_manager = YouTubeAPIManager()
 

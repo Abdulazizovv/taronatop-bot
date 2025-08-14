@@ -140,6 +140,8 @@ class InstagramMedia(models.Model):
 
     audio = models.ForeignKey(YoutubeAudio, on_delete=models.SET_NULL, related_name='instagram_media', blank=True, null=True)
 
+    has_audio = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

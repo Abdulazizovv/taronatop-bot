@@ -657,3 +657,30 @@ class DB:
             "created_at": ad_post.created_at,
             "updated_at": ad_post.updated_at
         }
+    
+
+# === Utility updates ===
+from asgiref.sync import sync_to_async
+
+class DBUtils:
+    @staticmethod
+    @sync_to_async
+    def update_instagram_track(media_id: str, track: str | None, artist: str | None):
+        try:
+            media = InstagramMedia.objects.filter(media_id=media_id).first()
+            if not media:
+                logging.warning(f"[DB] Instagram media not found for track update: {media_id}")
+                return None
+            if track:
+                media.track = track
+            if artist:
+                media.artist = artist
+            media.save(update_fields=[f for f in ["track", "artist"] if getattr(media, f) is not None])
+            return {
+                "media_id": media.media_id,
+                "track": media.track,
+                "artist": media.artist,
+            }
+        except Exception as e:
+            logging.error(f"[DB] update_instagram_track error: {e}")
+            return None
